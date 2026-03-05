@@ -601,10 +601,13 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
   ];
 
   return (
-    <div style={{ fontFamily: "'Syne', sans-serif", background: "#0a0a0f", minHeight: "100vh", color: "#e8e4dc", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
+    <div className="app-shell" style={{ fontFamily: "'Syne', sans-serif", background: "#0a0a0f", color: "#e8e4dc", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto", overflow: "hidden", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body, #root { height: 100%; overflow: hidden; background: #0a0a0f; position: fixed; inset: 0; width: 100%; }
+        body { overscroll-behavior: none; }
+        .app-shell { height: 100vh; height: 100dvh; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #111; } ::-webkit-scrollbar-thumb { background: #e63c2f; border-radius: 2px; }
         input, textarea, select, button { font-family: 'Syne', sans-serif; }
         input, textarea { font-size: 16px !important; }
@@ -615,10 +618,9 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
         .gym-btn { min-height: 48px; display: flex; align-items: center; justify-content: center; }
         .gym-btn:active { transform: scale(0.97); }
-        .content-scroll { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important; }
       `}</style>
 
-      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24", background: "#0a0a0f", position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24", background: "#0a0a0f", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <div style={{ fontSize: 10, letterSpacing: 4, color: "#e63c2f", textTransform: "uppercase", fontWeight: 700 }}>Iron Protocol</div>
           <div style={{ fontSize: 17, fontWeight: 800 }}>{profile.name || t.yourProfile}</div>
@@ -628,7 +630,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         </button>
       </div>
 
-      <div className="content-scroll" style={{ flex: 1, overflow: "auto", paddingBottom: 120, WebkitOverflowScrolling: "touch" }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
         {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} t={t} />}
         {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} t={t} />}
@@ -1828,7 +1830,7 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
   const quickPrompts = [t.prompt1, t.prompt2, t.prompt3, t.prompt4];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 128px)" }} className="slide-in">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }} className="slide-in">
       <div ref={messagesRef} style={{ flex: 1, overflow: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
         {messages.map((m, i) => (
           <div key={i}>
