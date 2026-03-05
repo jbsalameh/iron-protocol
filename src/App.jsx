@@ -160,6 +160,58 @@ function useT(profile) {
 
 const GIF_BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises";
 
+const IMAGE_MAP = {
+  "Bench Press": "Barbell_Bench_Press_-_Medium_Grip",
+  "Incline Bench Press": "Barbell_Incline_Bench_Press_-_Medium_Grip",
+  "Dumbbell Bench Press": "Dumbbell_Bench_Press",
+  "Dumbbell Flyes": "Dumbbell_Flyes",
+  "Push-ups": "Pushups",
+  "Cable Crossover": "Cable_Crossover",
+  "Dips": "Dips_-_Chest_Version",
+  "Pull-ups": "Pullups",
+  "Barbell Row": "Bent_Over_Barbell_Row",
+  "Lat Pulldown": "Wide-Grip_Lat_Pulldown",
+  "Seated Cable Row": "Seated_Cable_Rows",
+  "Deadlift": "Barbell_Deadlift",
+  "Dumbbell Row": "One-Arm_Dumbbell_Row",
+  "Hyperextensions": "Hyperextensions_Back_Extensions",
+  "Overhead Press": "Standing_Military_Press",
+  "Dumbbell Shoulder Press": "Dumbbell_Shoulder_Press",
+  "Arnold Press": "Arnold_Dumbbell_Press",
+  "Lateral Raises": "Side_Lateral_Raise",
+  "Face Pulls": "Face_Pull",
+  "Reverse Flyes": "Seated_Bent-Over_Rear_Delt_Raise",
+  "Squat": "Barbell_Full_Squat",
+  "Romanian Deadlift": "Romanian_Deadlift_With_Dumbbells",
+  "Leg Press": "Leg_Press",
+  "Bulgarian Split Squat": "Single_Leg_Squat",
+  "Lunges": "Dumbbell_Lunges",
+  "Leg Curl": "Seated_Leg_Curl",
+  "Leg Extension": "Leg_Extensions",
+  "Hip Thrust": "Barbell_Hip_Thrust",
+  "Calf Raises": "Standing_Calf_Raises",
+  "Barbell Curl": "Barbell_Curl",
+  "Dumbbell Curl": "Dumbbell_Bicep_Curl",
+  "Hammer Curl": "Hammer_Curls",
+  "Preacher Curl": "Preacher_Curl_-_With_Barbell",
+  "Cable Curl": "Cable_Hammer_Curls_-_Rope_Attachment",
+  "Skull Crushers": "Lying_Triceps_Press",
+  "Tricep Pushdown": "Triceps_Pushdown",
+  "Overhead Tricep Extension": "Standing_Dumbbell_Triceps_Extension",
+  "Diamond Push-ups": "Pushups_Close_Triceps_Version",
+  "Close-grip Bench Press": "Close-Grip_Barbell_Bench_Press",
+  "Plank": "Plank",
+  "Crunches": "Crunches",
+  "Hanging Leg Raises": "Hanging_Leg_Raise",
+  "Russian Twists": "Russian_Twist",
+  "Ab Wheel Rollout": "Ab_Roller",
+  "Mountain Climbers": "Mountain_Climbers",
+  "Burpees": "Burpee",
+  "Box Jumps": "Front_Box_Jump",
+  "Kettlebell Swing": "One-Arm_Kettlebell_Swings",
+  "Battle Ropes": "Battling_Ropes",
+};
+
 const EXERCISE_TIPS = {
   "Bench Press": "Lie flat, grip slightly wider than shoulder-width. Lower the bar to mid-chest with control, keeping elbows at ~75°. Press up explosively. Keep your feet flat, back slightly arched, and shoulder blades retracted throughout.",
   "Squat": "Bar on upper traps, feet shoulder-width. Brace core, push knees out, sit back and down until thighs are parallel to floor. Drive through heels to stand. Keep chest tall and don't let knees cave inward.",
@@ -386,9 +438,9 @@ function ExerciseDemo({ exercise, onClose, t: tt }) {
   const [imgFailed, setImgFailed] = useState(false);
   const [showSecond, setShowSecond] = useState(false);
   const [img2Failed, setImg2Failed] = useState(false);
-  const gifId = exercise.gifId;
-  const imgUrl = gifId ? `${GIF_BASE}/${gifId}/images/0.jpg` : null;
-  const img2Url = gifId ? `${GIF_BASE}/${gifId}/images/1.jpg` : null;
+  const imageId = IMAGE_MAP[exercise.name];
+  const imgUrl = imageId ? `${GIF_BASE}/${imageId}/0.jpg` : null;
+  const img2Url = imageId ? `${GIF_BASE}/${imageId}/1.jpg` : null;
   const tip = EXERCISE_TIPS[exercise.name] || `Keep full control through every rep. Focus tension on the target muscles (${exercise.muscles?.join(", ")}). Avoid momentum.`;
 
   return (
@@ -1814,39 +1866,51 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     setLoading(true);
     try {
       if (isPlanRequest(text)) {
-        // Step 1: Let Gemini write the plan naturally (it's good at this)
-        const planText = await callAI(
-          [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
-          `You are a personal AI fitness coach. Context: ${ctx()}\nThe user wants a training plan. Give a detailed plan with session names, exercises, sets, reps, and suggested weights in kg. Be specific and structured.`, 8000
+        // Single call: ask for explanation + JSON in one response
+        const planPrompt = `${text}
+
+User context: ${ctx()}
+
+Give me a training plan. First, explain the plan in 2-3 sentences. Then write the full plan with exercises, sets, reps, and weights.
+
+IMPORTANT: At the very end of your response, include the plan as a JSON array between these exact markers:
+===JSON_START===
+[paste the JSON here]
+===JSON_END===
+
+The JSON format:
+[{"id":1,"name":"Session Name","exercises":[{"name":"Exercise Name","muscles":["chest"],"equipment":"barbell","sets":3,"reps":"8-12","weight":"60"}]}]
+
+muscles must be lowercase from: chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core, abs, lats
+equipment must be: barbell, dumbbell, cable, machine, bodyweight`;
+
+        const fullResponse = await callAI(
+          [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: planPrompt }].slice(-6),
+          `You are a personal AI fitness coach. Always include the JSON block at the end between ===JSON_START=== and ===JSON_END=== markers.`, 8000
         );
-        setMessages(p => [...p, { role: "assistant", content: planText }]);
 
-        // Step 2: Convert the text plan into JSON (separate call)
-        const jsonPrompt = `Convert this training plan into a JSON array. Extract ONLY the data, output ONLY valid JSON.
+        // Extract display text (everything before the JSON markers)
+        const displayText = fullResponse.split("===JSON_START===")[0].replace(/```json[\s\S]*```/g, "").trim();
 
-The plan:
-${planText}
+        // Extract JSON from between markers, or fallback to extractJSON
+        let parsed = null;
+        const jsonMatch = fullResponse.match(/===JSON_START===([\s\S]*?)===JSON_END===/);
+        if (jsonMatch) {
+          parsed = extractJSON(jsonMatch[1]);
+        }
+        if (!parsed) {
+          parsed = extractJSON(fullResponse);
+        }
 
-Output format - a JSON array with this exact structure, nothing else:
-[{"id":1,"name":"Session Name","exercises":[{"name":"Exercise Name","muscles":["chest","triceps"],"equipment":"barbell","sets":3,"reps":"8-12","weight":"60"}]}]
+        if (displayText) {
+          setMessages(p => [...p, { role: "assistant", content: displayText, hasPlan: !!(Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.exercises) }]);
+        }
 
-Rules:
-- Output ONLY the JSON array, no other text
-- Every exercise must have name, muscles array, equipment, sets (number), reps (string), weight (string in kg)
-- muscles should be lowercase: chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core, abs, lats
-- equipment should be: barbell, dumbbell, cable, machine, bodyweight`;
-
-        const jsonRaw = await callAI([{ role: "user", content: jsonPrompt }], "You convert text into JSON. Output ONLY valid JSON arrays. No markdown fences, no explanation, no text outside the JSON.", 8000);
-        const parsed = extractJSON(jsonRaw);
-
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].exercises) {
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.exercises) {
           setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
-          // Mark last message as having a plan
-          setMessages(p => {
-            const updated = [...p];
-            if (updated.length > 0) updated[updated.length - 1] = { ...updated[updated.length - 1], hasPlan: true };
-            return updated;
-          });
+          if (!displayText) {
+            setMessages(p => [...p, { role: "assistant", content: "Here's your plan! Review it below and tap Accept to start.", hasPlan: true }]);
+          }
         }
       } else {
         const reply = await callAI(
