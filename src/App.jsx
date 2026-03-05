@@ -270,7 +270,7 @@ const COMMON_FOODS = [
   { name: "Cottage Cheese (100g)", protein: 11, calories: 98 },
 ];
 
-async function callAI(messages, systemPrompt, maxTokens = 1000) {
+async function callAI(messages, systemPrompt, maxTokens = 4000) {
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -282,6 +282,22 @@ async function callAI(messages, systemPrompt, maxTokens = 1000) {
   }
   const data = await response.json();
   return data.text || "";
+}
+
+// Extract JSON array or object from text that may contain markdown or explanation
+function extractJSON(text) {
+  if (!text) return null;
+  // Try direct parse first
+  try { const d = JSON.parse(text.trim()); return d; } catch {}
+  // Strip markdown fences
+  const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  try { const d = JSON.parse(stripped); return d; } catch {}
+  // Find first [ ... ] or { ... } block
+  const arrMatch = text.match(/\[[\s\S]*\]/);
+  if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch {} }
+  const objMatch = text.match(/\{[\s\S]*\}/);
+  if (objMatch) { try { return JSON.parse(objMatch[0]); } catch {} }
+  return null;
 }
 
 async function callAIVision(base64, mediaType, prompt) {
@@ -552,9 +568,8 @@ Return ONLY a JSON array:
 
 Be conservative with weight increases (2.5-5kg). Return empty array [] if no upgrades needed.`;
 
-      const response = await callAI([{ role: "user", content: prompt }], "Return ONLY valid JSON. No markdown.", 1200);
-      let parsed = [];
-      try { parsed = JSON.parse(response.replace(/```json|```/g, "").trim()); } catch {}
+      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation, no text outside the array.", 4000);
+      const parsed = extractJSON(response);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
         const enriched = parsed.map((s, i) => {
@@ -814,7 +829,7 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
   const getAlternatives = async (exercise) => {
     setAltLoading(true); setAltResults("");
     try {
-      const res = await callAI([{ role: "user", content: `Give 4 alternatives for "${exercise.name}" (targets: ${exercise.muscles?.join(", ")}). For each briefly explain why it's a good substitute.` }], "You are a knowledgeable fitness coach. Be concise and practical.", 1000);
+      const res = await callAI([{ role: "user", content: `Give 4 alternatives for "${exercise.name}" (targets: ${exercise.muscles?.join(", ")}). For each briefly explain why it's a good substitute.` }], "You are a knowledgeable fitness coach. Be concise and practical.", 2000);
       setAltResults(res);
     } catch (e) { setAltResults("Error: " + (e.message || "Could not load alternatives.")); }
     setAltLoading(false);
@@ -1409,12 +1424,10 @@ Return ONLY a JSON array like:
 
 Be conservative — only suggest weight increases of 2.5-5kg, only when there are 3+ sessions showing consistent performance at current weight. Return empty array [] if no clear upgrades are warranted yet.`;
 
-      const response = await callAI([{ role: "user", content: prompt }], "Return ONLY valid JSON. No markdown, no explanation.", 1200);
-      let parsed = [];
-      try { parsed = JSON.parse(response.replace(/```json|```/g, "").trim()); } catch {}
+      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation.", 4000);
+      const parsed = extractJSON(response);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Enrich with current values for display
         const enriched = parsed.map((s, i) => {
           const session = sessions.find(x => x.id === s.sessionId);
           const ex = session?.exercises?.[s.exIdx];
@@ -1801,20 +1814,56 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     setLoading(true);
     try {
       if (isPlanRequest(text)) {
-        const [planJson, explanation] = await Promise.all([
-          callAI([{ role: "user", content: `${text}\n\nContext: ${ctx()}\n\nGenerate a training program as JSON array. ONLY JSON, no text. Each session: {"id":number,"name":"string","exercises":[{"name":"string","muscles":["string"],"equipment":"string","sets":number,"reps":"string","weight":"string","wgerId":number}]}.` }], "Return ONLY a valid JSON array of training sessions. No markdown, no explanation.", 1800),
-          callAI([...messages.map(m => ({ role: m.role, content: m.content })), userMsg, { role: "user", content: "In 2-3 sentences, explain the training plan you created — the structure, why you chose it for this user's goals, and what to expect." }], `You are a personal AI fitness coach. Context: ${ctx()}`, 1000)
-        ]);
-        let parsed = [];
-        try { parsed = JSON.parse(planJson.replace(/```json|```/g, "").trim()); } catch {}
+        // Step 1: Generate JSON plan
+        const planPrompt = `${text}
+
+User context: ${ctx()}
+
+IMPORTANT: You MUST respond with ONLY a JSON array. No text before or after. No markdown.
+The JSON array should contain training sessions in this exact format:
+[
+  {
+    "id": 1,
+    "name": "Session Name",
+    "exercises": [
+      {
+        "name": "Exercise Name",
+        "muscles": ["muscle1", "muscle2"],
+        "equipment": "barbell",
+        "sets": 3,
+        "reps": "8-12",
+        "weight": "60"
+      }
+    ]
+  }
+]
+
+Respond with ONLY the JSON array, nothing else.`;
+
+        const planRaw = await callAI([{ role: "user", content: planPrompt }], "You are a JSON generator. Output ONLY valid JSON arrays. Never include explanations, markdown, or any text outside the JSON.", 8000);
+        const parsed = extractJSON(planRaw);
+
         if (Array.isArray(parsed) && parsed.length > 0) {
           setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+          // Step 2: Generate explanation
+          const explanation = await callAI(
+            [...messages.map(m => ({ role: m.role, content: m.content })), userMsg, { role: "user", content: "In 2-3 sentences, explain the training plan you just created — the structure, why you chose it for this user's goals, and what to expect." }],
+            `You are a personal AI fitness coach. Context: ${ctx()}`, 2000
+          );
           setMessages(p => [...p, { role: "assistant", content: explanation, hasPlan: true }]);
         } else {
-          setMessages(p => [...p, { role: "assistant", content: explanation }]);
+          // JSON failed — just do a normal chat response
+          const reply = await callAI(
+            [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
+            `You are a personal AI fitness coach. Context: ${ctx()}\nThe user wants a training plan. Give a detailed plan with exercises, sets, reps, and weights. Be specific.`, 8000
+          );
+          setMessages(p => [...p, { role: "assistant", content: reply }]);
         }
       } else {
-        const reply = await callAI([...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(1), `You are a personal AI fitness coach. Context: ${ctx()}\nBe specific, encouraging, and reference their actual data when helpful.`, 1000);
+        const reply = await callAI(
+          [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
+          `You are a personal AI fitness coach. Context: ${ctx()}\nBe specific, encouraging, and reference their actual data when helpful. Give complete answers.`, 4000
+        );
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }
     } catch (e) { setMessages(p => [...p, { role: "assistant", content: `${t.connectionError}\n\n${e.message || ""}` }]); }
