@@ -220,7 +220,7 @@ LEGS: Squat (barbell), Romanian Deadlift (barbell), Leg Press (machine), Bulgari
 BICEPS: Barbell Curl (barbell), Dumbbell Curl (dumbbell), Hammer Curl (dumbbell), Preacher Curl (barbell), Cable Curl (cable)
 TRICEPS: Skull Crushers (barbell), Tricep Pushdown (cable), Overhead Tricep Extension (dumbbell), Diamond Push-ups (bodyweight), Close-grip Bench Press (barbell)
 CORE: Plank (bodyweight), Crunches (bodyweight), Hanging Leg Raises (bodyweight), Russian Twists (bodyweight), Ab Wheel Rollout (bodyweight), Mountain Climbers (bodyweight)
-CARDIO: Burpees (bodyweight), Box Jumps (bodyweight), Kettlebell Swing (dumbbell), Battle Ropes (bodyweight)`;
+CARDIO: Burpees (bodyweight), Box Jumps (bodyweight), Kettlebell Swing (dumbbell), Battle Ropes (bodyweight), Jump Rope (bodyweight), Skillrow (machine), Rowing Machine (machine), Assault Bike (machine), Sled Push (bodyweight), Farmer's Walk (dumbbell), Stairmaster (machine)`;
 
 const EXERCISE_TIPS = {
   "Bench Press": "Lie flat, grip slightly wider than shoulder-width. Lower the bar to mid-chest with control, keeping elbows at ~75°. Press up explosively. Keep your feet flat, back slightly arched, and shoulder blades retracted throughout.",
@@ -241,6 +241,13 @@ const EXERCISE_TIPS = {
   "Face Pulls": "Cable at head height, rope attachment. Pull toward face, hands moving to ears, elbows flaring wide. Squeeze rear delts and rotator cuff at end. Light weight with perfect form here.",
   "Skull Crushers": "Lie on bench, bar above forehead with elbows vertical. Hinge only at elbows, lowering bar toward forehead. Press back up without moving upper arms. Keep elbows pointing straight up.",
   "Arnold Press": "Hold dumbbells at shoulder height, palms facing you. As you press up, rotate palms to face forward. Reverse on the way down. The rotation hits all three delt heads in one movement.",
+  "Skillrow": "Sit tall with core braced. Drive through legs first, then lean back slightly and pull handle to lower chest. Return in reverse order — arms, body, legs. Keep chain level and maintain rhythm.",
+  "Rowing Machine": "Push with legs first, lean back slightly, then pull handle to lower ribs. Return arms first, hinge forward, then bend knees. Keep a steady rhythm and don't grip too tight.",
+  "Assault Bike": "Keep core tight, push and pull with arms while driving legs. For intervals, go all-out then recover. For steady state, maintain a pace you can hold. Keep seat height so leg is slightly bent at bottom.",
+  "Jump Rope": "Stay on balls of feet, jump just high enough to clear the rope. Keep elbows close to body, turn rope with wrists not arms. Land softly with slight knee bend.",
+  "Sled Push": "Grip handles at chest or waist height. Drive through legs, keeping arms extended and back flat. Take short, powerful steps. Stay low — the lower your body angle, the more leg drive you get.",
+  "Farmer's Walk": "Pick up heavy dumbbells or kettlebells at your sides. Stand tall, shoulders back and down. Walk with short, quick steps. Squeeze the handles hard and keep core braced throughout.",
+  "Stairmaster": "Stand tall, don't lean on the handrails. Drive through the full foot, not just toes. Keep a steady pace. For more glute activation, take bigger steps and lean slightly forward.",
 };
 
 const MUSCLE_ID_MAP = {
@@ -251,6 +258,7 @@ const MUSCLE_ID_MAP = {
   triceps: [5],
   quads: [10], glutes: [8], hamstrings: [11], calves: [7],
   abs: [6], core: [6], "lower abs": [6], obliques: [14],
+  forearms: [1], traps: [2], back: [12, 9], legs: [10, 11, 8],
 };
 
 const EXERCISE_DB = {
@@ -318,6 +326,13 @@ const EXERCISE_DB = {
     { name: "Box Jumps", muscles: ["quads", "glutes"], equipment: "bodyweight", wgerId: 0, gifId: "0119" },
     { name: "Kettlebell Swing", muscles: ["glutes", "hamstrings", "core"], equipment: "dumbbell", wgerId: 0, gifId: "0424" },
     { name: "Battle Ropes", muscles: ["shoulders", "core"], equipment: "bodyweight", wgerId: 0, gifId: "0073" },
+    { name: "Jump Rope", muscles: ["calves", "shoulders", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
+    { name: "Skillrow", muscles: ["back", "legs", "core", "shoulders"], equipment: "machine", wgerId: 0, gifId: "" },
+    { name: "Rowing Machine", muscles: ["back", "legs", "core"], equipment: "machine", wgerId: 0, gifId: "" },
+    { name: "Assault Bike", muscles: ["quads", "hamstrings", "shoulders", "core"], equipment: "machine", wgerId: 0, gifId: "" },
+    { name: "Sled Push", muscles: ["quads", "glutes", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
+    { name: "Farmer's Walk", muscles: ["forearms", "traps", "core"], equipment: "dumbbell", wgerId: 0, gifId: "" },
+    { name: "Stairmaster", muscles: ["quads", "glutes", "calves"], equipment: "machine", wgerId: 0, gifId: "" },
   ],
 };
 
@@ -1092,22 +1107,39 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
   const [exercises, setExercises] = useState(initial?.exercises || []);
   const [showPicker, setShowPicker] = useState(false);
   const [showDemo, setShowDemo] = useState(null);
+  const [search, setSearch] = useState("");
 
-  const addEx = ex => { setExercises(p => [...p, { ...ex, sets: 3, reps: "8-12", weight: "" }]); setShowPicker(false); };
+  const addEx = ex => { setExercises(p => [...p, { ...ex, sets: 3, reps: "8-12", weight: "" }]); setShowPicker(false); setSearch(""); };
   const updateEx = (idx, f, v) => setExercises(p => p.map((e, i) => i === idx ? { ...e, [f]: v } : e));
   const removeEx = idx => setExercises(p => p.filter((_, i) => i !== idx));
   const muscles = [...new Set(exercises.flatMap(e => e.muscles || []))];
 
+  // Filter exercises by search
+  const filteredDB = {};
+  const searchLower = search.toLowerCase().trim();
+  Object.entries(EXERCISE_DB).forEach(([cat, exs]) => {
+    const filtered = searchLower ? exs.filter(ex =>
+      ex.name.toLowerCase().includes(searchLower) ||
+      ex.muscles?.some(m => m.toLowerCase().includes(searchLower)) ||
+      ex.equipment?.toLowerCase().includes(searchLower) ||
+      cat.toLowerCase().includes(searchLower)
+    ) : exs;
+    if (filtered.length > 0) filteredDB[cat] = filtered;
+  });
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
-      <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))", width: "100%", maxHeight: "92vh", overflow: "auto", WebkitOverflowScrolling: "touch" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 19 }}>{initial ? t.editSession : t.newSessionTitle}</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" /></button>
-        </div>
+    <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
+      {/* Header */}
+      <div style={{ flexShrink: 0, padding: "16px 20px", borderBottom: "1px solid #1a1a24", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 800, fontSize: 19 }}>{initial ? t.editSession : t.newSessionTitle}</div>
+        <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+      </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "16px 20px", WebkitOverflowScrolling: "touch" }}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>{t.sessionName}</div>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={t.egSessionName} style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 8, padding: "9px 12px", color: "#e8e4dc", fontSize: 14 }} />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder={t.egSessionName} style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48 }} />
         </div>
         {exercises.length > 0 && (
           <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: "10px 12px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
@@ -1122,15 +1154,15 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
         )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase" }}>{t.exercisesLabel}</div>
-          <button onClick={() => setShowPicker(true)} style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 7, padding: "4px 10px", color: "#e63c2f", fontSize: 12, fontWeight: 700 }}>+ {t.addExercise}</button>
+          <button onClick={() => setShowPicker(true)} className="gym-btn" style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 8, padding: "6px 14px", color: "#e63c2f", fontSize: 13, fontWeight: 700, minHeight: 36 }}>+ {t.addExercise}</button>
         </div>
         {exercises.map((ex, idx) => (
-          <div key={idx} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: 11, marginBottom: 8 }}>
+          <div key={idx} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 12, marginBottom: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{ex.name}</div>
               <div style={{ display: "flex", gap: 5 }}>
-                <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 6, padding: "3px 7px", color: "#e63c2f", fontSize: 11 }}>{t.howBtn}</button>
-                <button onClick={() => removeEx(idx)} style={{ background: "none", border: "none", color: "#444" }}><Icon name="trash" size={13} /></button>
+                <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 6, padding: "4px 8px", color: "#e63c2f", fontSize: 11 }}>{t.howBtn}</button>
+                <button onClick={() => removeEx(idx)} style={{ background: "none", border: "none", color: "#444", padding: 4 }}><Icon name="trash" size={14} /></button>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7 }}>
@@ -1138,37 +1170,59 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
                 <div key={f}>
                   <div style={{ fontSize: 9, color: "#555", marginBottom: 2, textTransform: "uppercase", letterSpacing: 1 }}>{f === "weight" ? t.kg : f === "sets" ? t.sets : t.reps}</div>
                   <input value={ex[f] || ""} onChange={e => updateEx(idx, f, e.target.value)} placeholder={f === "weight" ? "BW" : ""}
-                    style={{ width: "100%", background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 5, padding: "5px 7px", color: "#e8e4dc", fontSize: 13 }} />
+                    style={{ width: "100%", background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 6, padding: "8px", color: "#e8e4dc", fontSize: 14 }} />
                 </div>
               ))}
             </div>
           </div>
         ))}
-        <button onClick={() => name && onSave({ id: initial?.id || Date.now(), name, exercises })} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "13px", fontWeight: 800, fontSize: 15, color: "#fff", marginTop: 4, minHeight: 48 }}>{t.saveSession}</button>
-        {showPicker && (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.96)", zIndex: 300, overflow: "auto", padding: 18 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-              <div style={{ fontWeight: 800, fontSize: 17 }}>{t.addExerciseTitle}</div>
-              <button onClick={() => setShowPicker(false)} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" /></button>
-            </div>
-            {Object.entries(EXERCISE_DB).map(([cat, exs]) => (
-              <div key={cat} style={{ marginBottom: 18 }}>
-                <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 7 }}>{cat}</div>
-                {exs.map(ex => (
-                  <div key={ex.name} style={{ display: "flex", background: "#111", border: "1px solid #1a1a24", borderRadius: 9, marginBottom: 5, overflow: "hidden" }}>
-                    <button onClick={() => addEx(ex)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", padding: "9px 12px", color: "#e8e4dc" }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
-                      <div style={{ fontSize: 11, color: "#555" }}>{ex.equipment} · {ex.muscles?.join(", ")}</div>
-                    </button>
-                    <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "none", borderLeft: "1px solid #1a1a24", padding: "0 11px", color: "#e63c2f", fontSize: 11, fontWeight: 700 }}>{t.howBtn}</button>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-        {showDemo && <ExerciseDemo exercise={showDemo} onClose={() => setShowDemo(null)} t={t} />}
       </div>
+
+      {/* Fixed bottom save button */}
+      <div style={{ flexShrink: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid #1a1a24", background: "#0a0a0f" }}>
+        <button onClick={() => name && onSave({ id: initial?.id || Date.now(), name, exercises })} className="gym-btn" style={{ width: "100%", background: name ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: name ? 1 : 0.5 }}>{t.saveSession}</button>
+      </div>
+
+      {/* Exercise picker — fullscreen with search */}
+      {showPicker && (
+        <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column" }}>
+          <div style={{ flexShrink: 0, padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontWeight: 800, fontSize: 17 }}>{t.addExerciseTitle}</div>
+              <button onClick={() => { setShowPicker(false); setSearch(""); }} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+            </div>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="🔍 Search exercises, muscles, equipment..."
+              autoFocus
+              style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48, outline: "none" }}
+            />
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "12px 18px", WebkitOverflowScrolling: "touch" }}>
+            {Object.keys(filteredDB).length === 0 ? (
+              <div style={{ textAlign: "center", padding: 40, color: "#555", fontSize: 14 }}>No exercises match "{search}"</div>
+            ) : (
+              Object.entries(filteredDB).map(([cat, exs]) => (
+                <div key={cat} style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 7 }}>{cat}</div>
+                  {exs.map(ex => (
+                    <div key={ex.name} style={{ display: "flex", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, marginBottom: 6, overflow: "hidden" }}>
+                      <button onClick={() => addEx(ex)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", padding: "12px 14px", color: "#e8e4dc", minHeight: 48 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+                        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{ex.equipment} · {ex.muscles?.join(", ")}</div>
+                      </button>
+                      <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "none", borderLeft: "1px solid #1a1a24", padding: "0 14px", color: "#e63c2f", fontSize: 12, fontWeight: 700 }}>{t.howBtn}</button>
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+            <div style={{ height: 40 }} />
+          </div>
+        </div>
+      )}
+      {showDemo && <ExerciseDemo exercise={showDemo} onClose={() => setShowDemo(null)} t={t} />}
     </div>
   );
 }
@@ -1204,6 +1258,14 @@ const EX_FIELD_CONFIG = {
   "Jump Squats":         { label: "Added kg", placeholder: "BW",      unit: "kg", bodyweight: true },
   // Kettlebell
   "Kettlebell Swing":    { label: "Weight",   placeholder: "kg",      unit: "kg" },
+  // New cardio exercises
+  "Jump Rope":           { label: "Duration", placeholder: "secs",    unit: "s" },
+  "Skillrow":            { label: "Watts",    placeholder: "watts",   unit: "W" },
+  "Rowing Machine":      { label: "Watts",    placeholder: "watts",   unit: "W" },
+  "Assault Bike":        { label: "Calories", placeholder: "cals",    unit: "cal" },
+  "Sled Push":           { label: "Weight",   placeholder: "kg",      unit: "kg" },
+  "Farmer's Walk":       { label: "Weight",   placeholder: "kg",      unit: "kg" },
+  "Stairmaster":         { label: "Duration", placeholder: "secs",    unit: "s" },
   // Default (barbell, dumbbell, machine, cable)
 };
 
