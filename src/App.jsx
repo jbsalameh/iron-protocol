@@ -1128,15 +1128,16 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
   });
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div style={{ flexShrink: 0, padding: "16px 20px", borderBottom: "1px solid #1a1a24", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontWeight: 800, fontSize: 19 }}>{initial ? t.editSession : t.newSessionTitle}</div>
         <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
       </div>
 
-      {/* Scrollable content */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "16px 20px", WebkitOverflowScrolling: "touch" }}>
+      {/* Everything scrolls — including the save button */}
+      <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ padding: "16px 20px" }}>
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", marginBottom: 4, fontWeight: 700, textTransform: "uppercase" }}>{t.sessionName}</div>
           <input value={name} onChange={e => setName(e.target.value)} placeholder={t.egSessionName} style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48 }} />
@@ -1176,11 +1177,13 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
             </div>
           </div>
         ))}
-      </div>
 
-      {/* Fixed bottom save button */}
-      <div style={{ flexShrink: 0, padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))", borderTop: "1px solid #1a1a24", background: "#0a0a0f" }}>
-        <button onClick={() => name && onSave({ id: initial?.id || Date.now(), name, exercises })} className="gym-btn" style={{ width: "100%", background: name ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: name ? 1 : 0.5 }}>{t.saveSession}</button>
+        {/* Save button — inside scroll, always reachable */}
+        <button onClick={() => name && onSave({ id: initial?.id || Date.now(), name, exercises })} className="gym-btn" style={{ width: "100%", background: name ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: name ? 1 : 0.5, marginTop: 8 }}>{t.saveSession}</button>
+
+        {/* Big bottom spacer — guarantees button is always above iPhone home bar */}
+        <div style={{ height: 80 }} />
+        </div>
       </div>
 
       {/* Exercise picker — fullscreen with search */}
