@@ -10,7 +10,7 @@ const STORAGE_KEYS = {
 
 const defaultProfile = {
   name: "", weight: "", height: "", goal: "muscle_gain",
-  daysPerWeek: 4, minutesPerSession: 60, proteinTarget: 150, language: "en", apiKey: "",
+  daysPerWeek: 4, minutesPerSession: 60, proteinTarget: 150, language: "en",
 };
 
 const T = {
@@ -82,10 +82,6 @@ const T = {
     aiSuggestReady: "AI has analyzed your recent sessions", reviewSuggestions: "Review Suggestions",
     dismissSuggest: "Later", autoSuggestTitle: "Program Upgrade Available",
     autoSuggestDesc: "Based on your last sessions, we found improvements for your training.",
-    apiKey: "Anthropic API Key",
-    apiKeyPlaceholder: "sk-ant-...",
-    apiKeyHelp: "Required for AI Coach, photo analysis & auto-suggestions. Get yours free at console.anthropic.com",
-    apiKeyMissing: "To use AI features, add your Anthropic API key in Profile settings.",
   },
   fr: {
     training: "Entraînement", log: "Journal", stats: "Stats", nutrition: "Nutrition", progress: "Progrès", aiCoach: "Coach IA",
@@ -155,10 +151,6 @@ const T = {
     aiSuggestReady: "L'IA a analysé vos dernières séances", reviewSuggestions: "Voir les suggestions",
     dismissSuggest: "Plus tard", autoSuggestTitle: "Amélioration disponible",
     autoSuggestDesc: "D'après vos dernières séances, nous avons trouvé des améliorations pour votre programme.",
-    apiKey: "Clé API Anthropic",
-    apiKeyPlaceholder: "sk-ant-...",
-    apiKeyHelp: "Nécessaire pour le Coach IA, l'analyse photo et les suggestions auto. Obtenez la vôtre sur console.anthropic.com",
-    apiKeyMissing: "Pour utiliser les fonctions IA, ajoutez votre clé API Anthropic dans les réglages du Profil.",
   },
 };
 
@@ -278,24 +270,32 @@ const COMMON_FOODS = [
   { name: "Cottage Cheese (100g)", protein: 11, calories: 98 },
 ];
 
-async function callClaude(messages, systemPrompt, maxTokens = 1000, apiKey = "") {
-  if (!apiKey) throw new Error("NO_API_KEY");
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+async function callAI(messages, systemPrompt, maxTokens = 1000) {
+  const response = await fetch("/api/chat", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    },
-    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: maxTokens, system: systemPrompt, messages }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, system: systemPrompt, maxTokens }),
   });
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API error ${response.status}`);
+    throw new Error(err.error || `API error ${response.status}`);
   }
   const data = await response.json();
-  return data.content?.map(b => b.text || "").join("") || "";
+  return data.text || "";
+}
+
+async function callAIVision(base64, mediaType, prompt) {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: base64, mediaType, prompt }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || `API error ${response.status}`);
+  }
+  const data = await response.json();
+  return data.text || "";
 }
 
 function load(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
@@ -486,7 +486,6 @@ export default function GymTracker() {
   }, [workoutLogs.length]);
 
   const runAutoSuggest = async () => {
-    if (!profile.apiKey) return;
     setAutoSuggestLoading(true);
     try {
       const exProgress = {};
@@ -553,7 +552,7 @@ Return ONLY a JSON array:
 
 Be conservative with weight increases (2.5-5kg). Return empty array [] if no upgrades needed.`;
 
-      const response = await callClaude([{ role: "user", content: prompt }], "Return ONLY valid JSON. No markdown.", 1200, profile.apiKey);
+      const response = await callAI([{ role: "user", content: prompt }], "Return ONLY valid JSON. No markdown.", 1200);
       let parsed = [];
       try { parsed = JSON.parse(response.replace(/```json|```/g, "").trim()); } catch {}
 
@@ -632,9 +631,9 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
       <div className="content-scroll" style={{ flex: 1, overflow: "auto", paddingBottom: 120, WebkitOverflowScrolling: "touch" }}>
         {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} t={t} />}
-        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} profile={profile} t={t} />}
+        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} t={t} />}
         {tab === "nutrition" && <NutritionTab nutritionLogs={nutritionLogs} setNutritionLogs={setNutritionLogs} profile={profile} workoutLogs={workoutLogs} t={t} />}
-        {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} profile={profile} t={t} />}
+        {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} t={t} />}
         {tab === "ai" && <AICoachTab profile={profile} sessions={sessions} workoutLogs={workoutLogs} nutritionLogs={nutritionLogs} photos={photos} setSessions={setSessions} t={t} />}
       </div>
 
@@ -796,16 +795,6 @@ function ProfileModal({ profile, setProfile, onClose, t }) {
           )}
         </div>
 
-        {/* API Key */}
-        <div style={{ marginBottom: 14, marginTop: 8 }}>
-          <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", marginBottom: 5, fontWeight: 700, textTransform: "uppercase" }}>{curT.apiKey}</div>
-          <input value={form.apiKey || ""} onChange={e => setForm({ ...form, apiKey: e.target.value })} placeholder={curT.apiKeyPlaceholder} type="password" autoComplete="off"
-            style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48, fontFamily: "monospace" }} />
-          <div style={{ marginTop: 6, background: "#1a1a24", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: "#888", lineHeight: 1.6 }}>
-            {curT.apiKeyHelp}
-          </div>
-        </div>
-
         <button onClick={doSave} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", marginTop: 6, minHeight: 52 }}>{curT.saveProfile}</button>
       </div>
     </div>
@@ -821,12 +810,11 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
   const [expandedId, setExpandedId] = useState(null);
 
   const getAlternatives = async (exercise) => {
-    if (!profile.apiKey) { setAltResults(t.apiKeyMissing); return; }
     setAltLoading(true); setAltResults("");
     try {
-      const res = await callClaude([{ role: "user", content: `Give 4 alternatives for "${exercise.name}" (targets: ${exercise.muscles?.join(", ")}). For each briefly explain why it's a good substitute.` }], "You are a knowledgeable fitness coach. Be concise and practical.", 1000, profile.apiKey);
+      const res = await callAI([{ role: "user", content: `Give 4 alternatives for "${exercise.name}" (targets: ${exercise.muscles?.join(", ")}). For each briefly explain why it's a good substitute.` }], "You are a knowledgeable fitness coach. Be concise and practical.", 1000);
       setAltResults(res);
-    } catch (e) { setAltResults(e.message === "NO_API_KEY" ? t.apiKeyMissing : "Could not load alternatives."); }
+    } catch { setAltResults("Could not load alternatives."); }
     setAltLoading(false);
   };
 
@@ -1259,7 +1247,7 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, t }) {
   );
 }
 
-function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, profile, t }) {
+function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, t }) {
   const [selEx, setSelEx] = useState(null);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -1377,7 +1365,6 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, profile,
   }
 
   const generateSuggestions = async () => {
-    if (!profile.apiKey) { setAiSuggestions("no_key"); setLoadingSuggestions(false); return; }
     setLoadingSuggestions(true);
     try {
       // Build progress summary per exercise
@@ -1420,7 +1407,7 @@ Return ONLY a JSON array like:
 
 Be conservative — only suggest weight increases of 2.5-5kg, only when there are 3+ sessions showing consistent performance at current weight. Return empty array [] if no clear upgrades are warranted yet.`;
 
-      const response = await callClaude([{ role: "user", content: prompt }], "Return ONLY valid JSON. No markdown, no explanation.", 1200, profile.apiKey);
+      const response = await callAI([{ role: "user", content: prompt }], "Return ONLY valid JSON. No markdown, no explanation.", 1200);
       let parsed = [];
       try { parsed = JSON.parse(response.replace(/```json|```/g, "").trim()); } catch {}
 
@@ -1490,9 +1477,6 @@ Be conservative — only suggest weight increases of 2.5-5kg, only when there ar
           </div>
           {aiSuggestions === "no_changes" && (
             <div style={{ fontSize: 12, color: "#666", marginBottom: 10 }}>{t.keepTraining}</div>
-          )}
-          {aiSuggestions === "no_key" && (
-            <div style={{ fontSize: 12, color: "#f5a623", marginBottom: 10 }}>{t.apiKeyMissing}</div>
           )}
           {aiSuggestions === "applied" && (
             <div style={{ fontSize: 12, color: "#4ade80", marginBottom: 10 }}>{t.changesApplied}</div>
@@ -1744,17 +1728,16 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
   );
 }
 
-function PhotosTab({ photos, setPhotos, profile, t }) {
+function PhotosTab({ photos, setPhotos, t }) {
   const [analysis, setAnalysis] = useState(""); const [analyzing, setAnalyzing] = useState(false); const [selPhoto, setSelPhoto] = useState(null);
   const fileRef = useRef();
   const handleUpload = e => { const file = e.target.files[0]; if (!file) return; const r = new FileReader(); r.onload = ev => setPhotos(p => [...p, { id: Date.now(), date: new Date().toISOString(), dataUrl: ev.target.result }]); r.readAsDataURL(file); };
   const analyzePhoto = async photo => {
-    if (!profile.apiKey) { setAnalysis(t.apiKeyMissing); setSelPhoto(photo); return; }
     setAnalyzing(true); setAnalysis(""); setSelPhoto(photo);
     try {
       const base64 = photo.dataUrl.split(",")[1], mediaType = photo.dataUrl.split(";")[0].split(":")[1];
-      const res = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": profile.apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: [{ type: "image", source: { type: "base64", media_type: mediaType, data: base64 } }, { type: "text", text: "Analyze this gym progress photo. Comment on visible muscle development, posture, strong areas, areas needing work, and give specific workout recommendations. Be encouraging but honest." }] }] }) });
-      const data = await res.json(); setAnalysis(data.content?.map(b => b.text || "").join("") || "");
+      const result = await callAIVision(base64, mediaType, "Analyze this gym progress photo. Comment on visible muscle development, posture, strong areas, areas needing work, and give specific workout recommendations. Be encouraging but honest.");
+      setAnalysis(result);
     } catch { setAnalysis("Analysis failed. Please try again."); }
     setAnalyzing(false);
   };
@@ -1815,11 +1798,10 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     setInput("");
     setLoading(true);
     try {
-      if (!profile.apiKey) throw new Error("NO_API_KEY");
       if (isPlanRequest(text)) {
         const [planJson, explanation] = await Promise.all([
-          callClaude([{ role: "user", content: `${text}\n\nContext: ${ctx()}\n\nGenerate a training program as JSON array. ONLY JSON, no text. Each session: {"id":number,"name":"string","exercises":[{"name":"string","muscles":["string"],"equipment":"string","sets":number,"reps":"string","weight":"string","wgerId":number}]}.` }], "Return ONLY a valid JSON array of training sessions. No markdown, no explanation.", 1800, profile.apiKey),
-          callClaude([...messages.map(m => ({ role: m.role, content: m.content })), userMsg, { role: "user", content: "In 2-3 sentences, explain the training plan you created — the structure, why you chose it for this user's goals, and what to expect." }], `You are a personal AI fitness coach. Context: ${ctx()}`, 1000, profile.apiKey)
+          callAI([{ role: "user", content: `${text}\n\nContext: ${ctx()}\n\nGenerate a training program as JSON array. ONLY JSON, no text. Each session: {"id":number,"name":"string","exercises":[{"name":"string","muscles":["string"],"equipment":"string","sets":number,"reps":"string","weight":"string","wgerId":number}]}.` }], "Return ONLY a valid JSON array of training sessions. No markdown, no explanation.", 1800),
+          callAI([...messages.map(m => ({ role: m.role, content: m.content })), userMsg, { role: "user", content: "In 2-3 sentences, explain the training plan you created — the structure, why you chose it for this user's goals, and what to expect." }], `You are a personal AI fitness coach. Context: ${ctx()}`, 1000)
         ]);
         let parsed = [];
         try { parsed = JSON.parse(planJson.replace(/```json|```/g, "").trim()); } catch {}
@@ -1830,10 +1812,10 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
           setMessages(p => [...p, { role: "assistant", content: explanation }]);
         }
       } else {
-        const reply = await callClaude([...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(1), `You are a personal AI fitness coach. Context: ${ctx()}\nBe specific, encouraging, and reference their actual data when helpful.`, 1000, profile.apiKey);
+        const reply = await callAI([...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(1), `You are a personal AI fitness coach. Context: ${ctx()}\nBe specific, encouraging, and reference their actual data when helpful.`, 1000);
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }
-    } catch (e) { setMessages(p => [...p, { role: "assistant", content: e.message === "NO_API_KEY" ? t.apiKeyMissing : t.connectionError }]); }
+    } catch (e) { setMessages(p => [...p, { role: "assistant", content: t.connectionError }]); }
     setLoading(false);
   };
 
