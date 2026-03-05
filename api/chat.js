@@ -1,3 +1,25 @@
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+// In-memory store: { [ip]: { count, resetDate } }
+// Resets daily. Survives across requests but clears on cold start (acceptable).
+const rateLimitMap = new Map();
+const DAILY_LIMIT = parseInt(process.env.DAILY_LIMIT || "10", 10);
+
+function getRateLimit(ip) {
+  const today = new Date().toDateString();
+  let entry = rateLimitMap.get(ip);
+  if (!entry || entry.resetDate !== today) {
+    entry = { count: 0, resetDate: today };
+    rateLimitMap.set(ip, entry);
+  }
+  // Clean old entries periodically (every 100 checks)
+  if (rateLimitMap.size > 500) {
+    for (const [key, val] of rateLimitMap) {
+      if (val.resetDate !== today) rateLimitMap.delete(key);
+    }
+  }
+  return entry;
+}
+
 export default async function handler(req, res) {
   // CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -12,12 +34,25 @@ export default async function handler(req, res) {
     return res.status(200).json({
       status: "ok",
       keyConfigured: !!GEMINI_KEY,
-      keyPrefix: GEMINI_KEY ? GEMINI_KEY.slice(0, 8) + "..." : "NOT SET",
+      dailyLimit: DAILY_LIMIT,
     });
   }
 
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!GEMINI_KEY) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
+
+  // ─── Rate limit check ───────────────────────────────────────────────
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || "unknown";
+  const limit = getRateLimit(ip);
+  if (limit.count >= DAILY_LIMIT) {
+    return res.status(429).json({
+      error: `Daily limit reached (${DAILY_LIMIT} requests). Resets at midnight.`,
+      remaining: 0,
+    });
+  }
+  limit.count++;
+  const remaining = DAILY_LIMIT - limit.count;
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
     const { messages, system, maxTokens, image, mediaType, prompt } = req.body;
@@ -42,10 +77,11 @@ export default async function handler(req, res) {
     }
 
     if (contents.length === 0) {
+      limit.count--; // Don't count invalid requests
       return res.status(400).json({ error: "No messages or image provided" });
     }
 
-    // Merge consecutive same-role messages (Gemini requirement)
+    // Merge consecutive same-role messages
     const merged = [];
     for (const c of contents) {
       if (merged.length > 0 && merged[merged.length - 1].role === c.role) {
@@ -67,41 +103,30 @@ export default async function handler(req, res) {
       },
     });
 
-    // gemini-2.0-flash-lite has 30 RPM free tier (3x more than 2.5-flash)
     const MODEL = "gemini-2.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
-    const MAX_RETRIES = 2;
 
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const geminiRes = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
-        body,
+    const geminiRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
+      body,
+    });
+
+    const data = await geminiRes.json();
+
+    if (!geminiRes.ok) {
+      limit.count--; // Don't count failed API calls
+      console.error("Gemini error:", JSON.stringify(data));
+      return res.status(geminiRes.status).json({
+        error: data.error?.message || `Gemini API error ${geminiRes.status}`,
+        remaining,
       });
-
-      const data = await geminiRes.json();
-
-      // Rate limited — short wait and retry (Vercel has 10s timeout)
-      if (geminiRes.status === 429 && attempt < MAX_RETRIES - 1) {
-        const waitSec = 3;
-        console.log(`Rate limited (attempt ${attempt + 1}), waiting ${waitSec}s...`);
-        await new Promise((r) => setTimeout(r, waitSec * 1000));
-        continue;
-      }
-
-      if (!geminiRes.ok) {
-        console.error("Gemini error:", JSON.stringify(data));
-        return res.status(geminiRes.status).json({
-          error: data.error?.message || `Gemini API error ${geminiRes.status}`,
-        });
-      }
-
-      const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-      return res.status(200).json({ text });
     }
 
-    return res.status(429).json({ error: "Rate limit exceeded. Please wait a moment and try again." });
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+    return res.status(200).json({ text, remaining });
   } catch (err) {
+    limit.count--; // Don't count errors
     console.error("Proxy error:", err.message);
     return res.status(500).json({ error: err.message || "Internal server error" });
   }
