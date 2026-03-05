@@ -212,6 +212,16 @@ const IMAGE_MAP = {
   "Battle Ropes": "Battling_Ropes",
 };
 
+// Exercise list for AI prompts — ONLY these exercises exist in the app
+const AVAILABLE_EXERCISES = `CHEST: Bench Press (barbell), Incline Bench Press (barbell), Dumbbell Bench Press (dumbbell), Dumbbell Flyes (dumbbell), Push-ups (bodyweight), Cable Crossover (cable), Dips (bodyweight)
+BACK: Pull-ups (bodyweight), Barbell Row (barbell), Lat Pulldown (machine), Seated Cable Row (cable), Deadlift (barbell), Dumbbell Row (dumbbell), Hyperextensions (bodyweight)
+SHOULDERS: Overhead Press (barbell), Dumbbell Shoulder Press (dumbbell), Arnold Press (dumbbell), Lateral Raises (dumbbell), Face Pulls (cable), Reverse Flyes (dumbbell)
+LEGS: Squat (barbell), Romanian Deadlift (barbell), Leg Press (machine), Bulgarian Split Squat (dumbbell), Lunges (dumbbell), Leg Curl (machine), Leg Extension (machine), Hip Thrust (barbell), Calf Raises (machine)
+BICEPS: Barbell Curl (barbell), Dumbbell Curl (dumbbell), Hammer Curl (dumbbell), Preacher Curl (barbell), Cable Curl (cable)
+TRICEPS: Skull Crushers (barbell), Tricep Pushdown (cable), Overhead Tricep Extension (dumbbell), Diamond Push-ups (bodyweight), Close-grip Bench Press (barbell)
+CORE: Plank (bodyweight), Crunches (bodyweight), Hanging Leg Raises (bodyweight), Russian Twists (bodyweight), Ab Wheel Rollout (bodyweight), Mountain Climbers (bodyweight)
+CARDIO: Burpees (bodyweight), Box Jumps (bodyweight), Kettlebell Swing (dumbbell), Battle Ropes (bodyweight)`;
+
 const EXERCISE_TIPS = {
   "Bench Press": "Lie flat, grip slightly wider than shoulder-width. Lower the bar to mid-chest with control, keeping elbows at ~75°. Press up explosively. Keep your feet flat, back slightly arched, and shoulder blades retracted throughout.",
   "Squat": "Bar on upper traps, feet shoulder-width. Brace core, push knees out, sit back and down until thighs are parallel to floor. Drive through heels to stand. Keep chest tall and don't let knees cave inward.",
@@ -339,17 +349,99 @@ async function callAI(messages, systemPrompt, maxTokens = 4000) {
 // Extract JSON array or object from text that may contain markdown or explanation
 function extractJSON(text) {
   if (!text) return null;
-  // Try direct parse first
   try { const d = JSON.parse(text.trim()); return d; } catch {}
-  // Strip markdown fences
   const stripped = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   try { const d = JSON.parse(stripped); return d; } catch {}
-  // Find first [ ... ] or { ... } block
   const arrMatch = text.match(/\[[\s\S]*\]/);
   if (arrMatch) { try { return JSON.parse(arrMatch[0]); } catch {} }
   const objMatch = text.match(/\{[\s\S]*\}/);
   if (objMatch) { try { return JSON.parse(objMatch[0]); } catch {} }
   return null;
+}
+
+// All known exercise names from EXERCISE_DB for matching
+const KNOWN_EXERCISES = {};
+Object.values(EXERCISE_DB).forEach(cat => {
+  cat.forEach(ex => { KNOWN_EXERCISES[ex.name.toLowerCase()] = ex; });
+});
+
+// Fuzzy match an exercise name to a known exercise
+function matchExercise(rawName) {
+  if (!rawName) return null;
+  const clean = rawName.replace(/^\*+|\*+$/g, "").replace(/\s+/g, " ").trim();
+  const lower = clean.toLowerCase();
+  // Exact match
+  if (KNOWN_EXERCISES[lower]) return KNOWN_EXERCISES[lower];
+  // Try without trailing s (e.g. "Dumbbell Curls" -> "Dumbbell Curl")
+  if (KNOWN_EXERCISES[lower.replace(/s$/, "")]) return KNOWN_EXERCISES[lower.replace(/s$/, "")];
+  // Try adding trailing s
+  if (KNOWN_EXERCISES[lower + "s"]) return KNOWN_EXERCISES[lower + "s"];
+  // Partial match — find first exercise whose name contains the input or vice versa
+  for (const [key, ex] of Object.entries(KNOWN_EXERCISES)) {
+    if (key.includes(lower) || lower.includes(key)) return ex;
+  }
+  // Word overlap match
+  const words = lower.split(/\s+/);
+  let bestMatch = null, bestScore = 0;
+  for (const [key, ex] of Object.entries(KNOWN_EXERCISES)) {
+    const exWords = key.split(/\s+/);
+    const overlap = words.filter(w => exWords.includes(w)).length;
+    if (overlap > bestScore) { bestScore = overlap; bestMatch = ex; }
+  }
+  if (bestScore >= 2) return bestMatch;
+  return null;
+}
+
+// Parse a training plan from structured text into session objects
+function parsePlanFromText(text) {
+  if (!text) return [];
+  const sessions = [];
+  const parts = text.split(/SESSION:\s*/i);
+  for (let i = 1; i < parts.length; i++) {
+    const block = parts[i].trim();
+    const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) continue;
+    const sessionName = lines[0].replace(/^\*+|\*+$/g, "").replace(/^#+\s*/, "").trim();
+    const exercises = [];
+    for (let j = 1; j < lines.length; j++) {
+      const line = lines[j].replace(/^[-•*]\s*/, "").trim();
+      if (!line || /^SESSION/i.test(line)) break;
+      // Try pipe format: Name | equipment | muscles | 3x10 | 60kg
+      const pipeParts = line.split("|").map(s => s.trim());
+      if (pipeParts.length >= 4) {
+        const rawName = pipeParts[0].replace(/^\*+|\*+$/g, "").trim();
+        const setsReps = pipeParts[3] || "3x10";
+        const weightStr = pipeParts[4] || "0";
+        const srMatch = setsReps.match(/(\d+)\s*[x×]\s*([\d-]+)/i);
+        const sets = srMatch ? parseInt(srMatch[1]) : 3;
+        const reps = srMatch ? srMatch[2] : "10";
+        const weight = weightStr.replace(/kg/gi, "").trim() || "0";
+        // Match to known exercise
+        const known = matchExercise(rawName);
+        if (known) {
+          exercises.push({ ...known, sets, reps, weight });
+        } else {
+          const equipment = (pipeParts[1] || "barbell").toLowerCase().trim();
+          const muscles = (pipeParts[2] || "").split(",").map(m => m.trim().toLowerCase()).filter(Boolean);
+          exercises.push({ name: rawName, muscles: muscles.length > 0 ? muscles : ["other"], equipment: equipment || "barbell", sets, reps, weight });
+        }
+      } else {
+        // Fallback: try "Exercise Name - 3x10 @ 60kg"
+        const fallback = line.match(/^(.+?)[\s-]+(\d+)\s*[x×]\s*([\d-]+)(?:\s*[@at]*\s*([\d.]+)\s*kg?)?/i);
+        if (fallback) {
+          const known = matchExercise(fallback[1]);
+          exercises.push({
+            ...(known || { name: fallback[1].trim(), muscles: ["other"], equipment: "barbell" }),
+            sets: parseInt(fallback[2]), reps: fallback[3], weight: fallback[4] || "0"
+          });
+        }
+      }
+    }
+    if (exercises.length > 0) {
+      sessions.push({ name: sessionName, exercises });
+    }
+  }
+  return sessions;
 }
 
 async function callAIVision(base64, mediaType, prompt) {
@@ -1866,56 +1958,51 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     setLoading(true);
     try {
       if (isPlanRequest(text)) {
-        // Single call: ask for explanation + JSON in one response
         const planPrompt = `${text}
 
 User context: ${ctx()}
 
-Give me a training plan. First, explain the plan in 2-3 sentences. Then write the full plan with exercises, sets, reps, and weights.
+AVAILABLE EXERCISES (you MUST only use exercises from this list, use the exact names):
+${AVAILABLE_EXERCISES}
 
-IMPORTANT: At the very end of your response, include the plan as a JSON array between these exact markers:
-===JSON_START===
-[paste the JSON here]
-===JSON_END===
+Write a training plan using ONLY exercises from the list above. Use this EXACT format for each session:
 
-The JSON format:
-[{"id":1,"name":"Session Name","exercises":[{"name":"Exercise Name","muscles":["chest"],"equipment":"barbell","sets":3,"reps":"8-12","weight":"60"}]}]
+SESSION: [session name]
+- [exercise name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
+- [exercise name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
 
-muscles must be lowercase from: chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core, abs, lats
-equipment must be: barbell, dumbbell, cable, machine, bodyweight`;
+SESSION: [next session name]
+- [exercise name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
+
+Rules:
+- ONLY use exercise names from the list above, spelled exactly as shown
+- equipment and muscles are already defined in the list, copy them
+- weight is in kg (use 0 for bodyweight exercises)
+- Start with a 2-3 sentence explanation, then list the sessions
+
+Example:
+SESSION: Push Day
+- Bench Press | barbell | chest, triceps, shoulders | 4x8-10 | 60kg
+- Overhead Press | barbell | shoulders, triceps | 3x10 | 40kg
+- Lateral Raises | dumbbell | side delts | 3x12 | 8kg`;
 
         const fullResponse = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: planPrompt }].slice(-6),
-          `You are a personal AI fitness coach. Always include the JSON block at the end between ===JSON_START=== and ===JSON_END=== markers.`, 8000
+          `You are a personal AI fitness coach. You MUST only suggest exercises from the provided list. Use the exact exercise names. Always use the SESSION/pipe format.`, 4000
         );
 
-        // Extract display text (everything before the JSON markers)
-        const displayText = fullResponse.split("===JSON_START===")[0].replace(/```json[\s\S]*```/g, "").trim();
+        // Parse sessions from text
+        const parsed = parsePlanFromText(fullResponse);
 
-        // Extract JSON from between markers, or fallback to extractJSON
-        let parsed = null;
-        const jsonMatch = fullResponse.match(/===JSON_START===([\s\S]*?)===JSON_END===/);
-        if (jsonMatch) {
-          parsed = extractJSON(jsonMatch[1]);
-        }
-        if (!parsed) {
-          parsed = extractJSON(fullResponse);
-        }
+        setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: parsed.length > 0 }]);
 
-        if (displayText) {
-          setMessages(p => [...p, { role: "assistant", content: displayText, hasPlan: !!(Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.exercises) }]);
-        }
-
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.exercises) {
+        if (parsed.length > 0) {
           setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
-          if (!displayText) {
-            setMessages(p => [...p, { role: "assistant", content: "Here's your plan! Review it below and tap Accept to start.", hasPlan: true }]);
-          }
         }
       } else {
         const reply = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
-          `You are a personal AI fitness coach. Context: ${ctx()}\nBe specific, encouraging, and reference their actual data when helpful. Give complete answers.`, 4000
+          `You are a personal AI fitness coach. Context: ${ctx()}\nWhen suggesting exercises, only recommend from this list: ${AVAILABLE_EXERCISES}\nBe specific, encouraging, and reference their actual data when helpful. Give complete answers.`, 4000
         );
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }
