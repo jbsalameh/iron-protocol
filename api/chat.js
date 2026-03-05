@@ -76,7 +76,7 @@ export default async function handler(req, res) {
         contents: merged,
         systemInstruction: system ? { parts: [{ text: system }] } : undefined,
         generationConfig: {
-          maxOutputTokens: maxTokens || 1000,
+          maxOutputTokens: maxTokens || 4000,
           temperature: 0.7,
         },
       }),
