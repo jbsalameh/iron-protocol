@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     });
 
     // gemini-2.0-flash-lite has 30 RPM free tier (3x more than 2.5-flash)
-    const MODEL = "gemini-2.0-flash";
+    const MODEL = "gemini-2.5-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
     const MAX_RETRIES = 2;
 
