@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="102.4" fill="#0a0a0f"/>
+  <g transform="translate(256, 256)">
+    <!-- Barbell -->
+    <rect x="-179.2" y="-15.36" width="358.4" height="30.72" rx="7.68" fill="#e63c2f"/>
+    <!-- Left weight -->
+    <rect x="-179.2" y="-76.8" width="40.96" height="153.6" rx="10.24" fill="#e63c2f"/>
+    <rect x="-215.04" y="-61.44" width="30.72" height="122.88" rx="7.68" fill="#c0281f"/>
+    <!-- Right weight -->
+    <rect x="138.24" y="-76.8" width="40.96" height="153.6" rx="10.24" fill="#e63c2f"/>
+    <rect x="184.32" y="-61.44" width="30.72" height="122.88" rx="7.68" fill="#c0281f"/>
+  </g>
+  <text x="256" y="399.36" text-anchor="middle" fill="#e8e4dc" font-family="sans-serif" font-weight="800" font-size="46.08" letter-spacing="5.12">IRON</text>
+</svg>
