@@ -816,7 +816,7 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
     try {
       const res = await callAI([{ role: "user", content: `Give 4 alternatives for "${exercise.name}" (targets: ${exercise.muscles?.join(", ")}). For each briefly explain why it's a good substitute.` }], "You are a knowledgeable fitness coach. Be concise and practical.", 1000);
       setAltResults(res);
-    } catch { setAltResults("Could not load alternatives."); }
+    } catch (e) { setAltResults("Error: " + (e.message || "Could not load alternatives.")); }
     setAltLoading(false);
   };
 
@@ -1740,7 +1740,7 @@ function PhotosTab({ photos, setPhotos, t }) {
       const base64 = photo.dataUrl.split(",")[1], mediaType = photo.dataUrl.split(";")[0].split(":")[1];
       const result = await callAIVision(base64, mediaType, "Analyze this gym progress photo. Comment on visible muscle development, posture, strong areas, areas needing work, and give specific workout recommendations. Be encouraging but honest.");
       setAnalysis(result);
-    } catch { setAnalysis("Analysis failed. Please try again."); }
+    } catch (e) { setAnalysis("Error: " + (e.message || "Analysis failed.")); }
     setAnalyzing(false);
   };
   return (
@@ -1817,7 +1817,7 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
         const reply = await callAI([...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(1), `You are a personal AI fitness coach. Context: ${ctx()}\nBe specific, encouraging, and reference their actual data when helpful.`, 1000);
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }
-    } catch (e) { setMessages(p => [...p, { role: "assistant", content: t.connectionError }]); }
+    } catch (e) { setMessages(p => [...p, { role: "assistant", content: `${t.connectionError}\n\n${e.message || ""}` }]); }
     setLoading(false);
   };
 
