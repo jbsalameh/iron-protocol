@@ -338,11 +338,14 @@ async function callAI(messages, systemPrompt, maxTokens = 4000) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, system: systemPrompt, maxTokens }),
   });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || `API error ${response.status}`);
-  }
   const data = await response.json();
+  // Store remaining requests for UI display
+  if (data.remaining !== undefined) {
+    try { localStorage.setItem("ai_remaining", data.remaining); } catch {}
+  }
+  if (!response.ok) {
+    throw new Error(data.error || `API error ${response.status}`);
+  }
   return data.text || "";
 }
 
@@ -450,11 +453,13 @@ async function callAIVision(base64, mediaType, prompt) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: base64, mediaType, prompt }),
   });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error || `API error ${response.status}`);
-  }
   const data = await response.json();
+  if (data.remaining !== undefined) {
+    try { localStorage.setItem("ai_remaining", data.remaining); } catch {}
+  }
+  if (!response.ok) {
+    throw new Error(data.error || `API error ${response.status}`);
+  }
   return data.text || "";
 }
 
@@ -905,7 +910,7 @@ function ProfileModal({ profile, setProfile, onClose, t }) {
   );
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
-      <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", padding: 22, width: "100%", maxHeight: "90vh", overflow: "auto" }}>
+      <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", paddingTop: 22, paddingLeft: 22, paddingRight: 22, paddingBottom: "calc(22px + env(safe-area-inset-bottom, 0px))", width: "100%", maxHeight: "90vh", overflow: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <div style={{ fontWeight: 800, fontSize: 19 }}>{curT.yourProfile}</div>
           <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
@@ -1065,7 +1070,7 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
 
       {showAlts && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
-          <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", padding: 22, width: "100%", maxHeight: "75vh", overflow: "auto" }}>
+          <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", paddingTop: 22, paddingLeft: 22, paddingRight: 22, paddingBottom: "calc(22px + env(safe-area-inset-bottom, 0px))", width: "100%", maxHeight: "75vh", overflow: "auto", WebkitOverflowScrolling: "touch" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
               <div style={{ fontWeight: 800, fontSize: 17 }}>{t.alternativesFor} {showAlts.exercise?.name}</div>
               <button onClick={() => setShowAlts(null)} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" /></button>
@@ -1095,7 +1100,7 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
-      <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", padding: 20, width: "100%", maxHeight: "92vh", overflow: "auto" }}>
+      <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))", width: "100%", maxHeight: "92vh", overflow: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
           <div style={{ fontWeight: 800, fontSize: 19 }}>{initial ? t.editSession : t.newSessionTitle}</div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" /></button>
@@ -1860,7 +1865,7 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
       }
       {showAdd && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
-          <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", padding: 20, width: "100%", maxHeight: "85vh", overflow: "auto" }}>
+          <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", paddingTop: 20, paddingLeft: 20, paddingRight: 20, paddingBottom: "calc(20px + env(safe-area-inset-bottom, 0px))", width: "100%", maxHeight: "85vh", overflow: "auto", WebkitOverflowScrolling: "touch" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{t.addFood}</div>
               <button onClick={() => setShowAdd(false)} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" /></button>
@@ -1941,9 +1946,17 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
+  const [remaining, setRemaining] = useState(() => { try { const v = localStorage.getItem("ai_remaining"); return v !== null ? parseInt(v) : null; } catch { return null; } });
   const messagesRef = useRef();
 
   useEffect(() => { if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight; }, [messages, pendingPlan]);
+  // Sync remaining from localStorage (updated by callAI)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      try { const v = localStorage.getItem("ai_remaining"); if (v !== null) setRemaining(parseInt(v)); } catch {}
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const ctx = () => `Profile: ${JSON.stringify(profile)}\nSessions: ${JSON.stringify(sessions.map(s => ({ name: s.name, exercises: s.exercises?.map(e => e.name) })))}\nRecent workouts: ${JSON.stringify(workoutLogs.slice(-5).map(l => ({ date: l.date, session: l.sessionName })))}\nRecent nutrition: ${JSON.stringify(nutritionLogs.slice(-8).map(l => ({ name: l.name, protein: l.protein })))}`;
 
@@ -2050,12 +2063,19 @@ SESSION: Push Day
           </div>
         )}
       </div>
-      <div style={{ padding: "10px 14px 14px", borderTop: "1px solid #1a1a24", display: "flex", gap: 7 }}>
+      <div style={{ padding: "10px 14px 14px", borderTop: "1px solid #1a1a24" }}>
+        {remaining !== null && (
+          <div style={{ fontSize: 10, color: remaining <= 3 ? "#e63c2f" : "#444", textAlign: "center", marginBottom: 6, fontWeight: 600 }}>
+            {remaining <= 0 ? "Daily limit reached — resets at midnight" : `${remaining} requests remaining today`}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 7 }}>
         <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.shiftKey && send()}
           placeholder={t.askCoach} style={{ flex: 1, background: "#111", border: "1px solid #2a2a3a", borderRadius: 11, padding: "10px 14px", color: "#e8e4dc", fontSize: 15, outline: "none", minHeight: 44 }} />
-        <button onClick={() => send()} disabled={loading || !input.trim()} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 11, padding: "10px 16px", color: "#fff", opacity: loading || !input.trim() ? 0.4 : 1, minWidth: 48, minHeight: 44 }}>
+        <button onClick={() => send()} disabled={loading || !input.trim() || remaining === 0} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 11, padding: "10px 16px", color: "#fff", opacity: loading || !input.trim() || remaining === 0 ? 0.4 : 1, minWidth: 48, minHeight: 44 }}>
           <Icon name="send" size={15} />
         </button>
+        </div>
       </div>
     </div>
   );
