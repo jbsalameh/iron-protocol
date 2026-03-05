@@ -67,13 +67,12 @@ export default async function handler(req, res) {
       },
     });
 
-    // Try with primary model, retry once on rate limit, then fallback to lighter model
-    const MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+    // gemini-2.0-flash-lite has 30 RPM free tier (3x more than 2.5-flash)
+    const MODEL = "gemini-2.0-flash-lite";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+    const MAX_RETRIES = 2;
 
-    for (let attempt = 0; attempt < MODELS.length; attempt++) {
-      const model = MODELS[attempt];
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       const geminiRes = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
@@ -82,9 +81,11 @@ export default async function handler(req, res) {
 
       const data = await geminiRes.json();
 
-      // Rate limited — try fallback model immediately instead of waiting
-      if (geminiRes.status === 429 && attempt < MODELS.length - 1) {
-        console.log(`Rate limited on ${model}, trying ${MODELS[attempt + 1]}...`);
+      // Rate limited — short wait and retry (Vercel has 10s timeout)
+      if (geminiRes.status === 429 && attempt < MAX_RETRIES - 1) {
+        const waitSec = 3;
+        console.log(`Rate limited (attempt ${attempt + 1}), waiting ${waitSec}s...`);
+        await new Promise((r) => setTimeout(r, waitSec * 1000));
         continue;
       }
 
