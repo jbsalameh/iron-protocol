@@ -1814,50 +1814,39 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     setLoading(true);
     try {
       if (isPlanRequest(text)) {
-        // Step 1: Generate JSON plan
-        const planPrompt = `${text}
+        // Step 1: Let Gemini write the plan naturally (it's good at this)
+        const planText = await callAI(
+          [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
+          `You are a personal AI fitness coach. Context: ${ctx()}\nThe user wants a training plan. Give a detailed plan with session names, exercises, sets, reps, and suggested weights in kg. Be specific and structured.`, 8000
+        );
+        setMessages(p => [...p, { role: "assistant", content: planText }]);
 
-User context: ${ctx()}
+        // Step 2: Convert the text plan into JSON (separate call)
+        const jsonPrompt = `Convert this training plan into a JSON array. Extract ONLY the data, output ONLY valid JSON.
 
-IMPORTANT: You MUST respond with ONLY a JSON array. No text before or after. No markdown.
-The JSON array should contain training sessions in this exact format:
-[
-  {
-    "id": 1,
-    "name": "Session Name",
-    "exercises": [
-      {
-        "name": "Exercise Name",
-        "muscles": ["muscle1", "muscle2"],
-        "equipment": "barbell",
-        "sets": 3,
-        "reps": "8-12",
-        "weight": "60"
-      }
-    ]
-  }
-]
+The plan:
+${planText}
 
-Respond with ONLY the JSON array, nothing else.`;
+Output format - a JSON array with this exact structure, nothing else:
+[{"id":1,"name":"Session Name","exercises":[{"name":"Exercise Name","muscles":["chest","triceps"],"equipment":"barbell","sets":3,"reps":"8-12","weight":"60"}]}]
 
-        const planRaw = await callAI([{ role: "user", content: planPrompt }], "You are a JSON generator. Output ONLY valid JSON arrays. Never include explanations, markdown, or any text outside the JSON.", 8000);
-        const parsed = extractJSON(planRaw);
+Rules:
+- Output ONLY the JSON array, no other text
+- Every exercise must have name, muscles array, equipment, sets (number), reps (string), weight (string in kg)
+- muscles should be lowercase: chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core, abs, lats
+- equipment should be: barbell, dumbbell, cable, machine, bodyweight`;
 
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        const jsonRaw = await callAI([{ role: "user", content: jsonPrompt }], "You convert text into JSON. Output ONLY valid JSON arrays. No markdown fences, no explanation, no text outside the JSON.", 8000);
+        const parsed = extractJSON(jsonRaw);
+
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].exercises) {
           setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
-          // Step 2: Generate explanation
-          const explanation = await callAI(
-            [...messages.map(m => ({ role: m.role, content: m.content })), userMsg, { role: "user", content: "In 2-3 sentences, explain the training plan you just created — the structure, why you chose it for this user's goals, and what to expect." }],
-            `You are a personal AI fitness coach. Context: ${ctx()}`, 2000
-          );
-          setMessages(p => [...p, { role: "assistant", content: explanation, hasPlan: true }]);
-        } else {
-          // JSON failed — just do a normal chat response
-          const reply = await callAI(
-            [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
-            `You are a personal AI fitness coach. Context: ${ctx()}\nThe user wants a training plan. Give a detailed plan with exercises, sets, reps, and weights. Be specific.`, 8000
-          );
-          setMessages(p => [...p, { role: "assistant", content: reply }]);
+          // Mark last message as having a plan
+          setMessages(p => {
+            const updated = [...p];
+            if (updated.length > 0) updated[updated.length - 1] = { ...updated[updated.length - 1], hasPlan: true };
+            return updated;
+          });
         }
       } else {
         const reply = await callAI(
