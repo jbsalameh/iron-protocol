@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iron-protocol-v8';
+const CACHE_NAME = 'iron-protocol-v9';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
