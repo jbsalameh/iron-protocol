@@ -103,7 +103,7 @@ export default async function handler(req, res) {
       },
     });
 
-    const MODEL = "gemini-3-flash";
+    const MODEL = "gemini-3.1-flash-lite-preview";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
     const geminiRes = await fetch(url, {
