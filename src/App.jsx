@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   workoutLogs: "gym_workout_logs",
   nutritionLogs: "gym_nutrition_logs",
   photos: "gym_photos",
+  customExercises: "gym_custom_exercises",
 };
 
 const defaultProfile = {
@@ -82,6 +83,20 @@ const T = {
     aiSuggestReady: "AI has analyzed your recent sessions", reviewSuggestions: "Review Suggestions",
     dismissSuggest: "Later", autoSuggestTitle: "Program Upgrade Available",
     autoSuggestDesc: "Based on your last sessions, we found improvements for your training.",
+    startWorkout: "Start Workout", workoutTimer: "Workout Timer", restTimer: "Rest Timer",
+    restComplete: "Rest complete! Next set 💪", startRest: "Start Rest",
+    skipRest: "Skip Rest", gymTime: "Gym Time", sessionSummary: "Session Summary",
+    totalTime: "Total Time", setsLogged: "Sets Logged", avgRest: "Avg Rest",
+    viewSummary: "View Summary", closeSummary: "Done",
+    replacePlan: "Replace current sessions", addToPlan: "Add to sessions",
+    aiSuggestPrompt: "What would you like to do with this plan?",
+    createExercise: "Create Exercise", customExercises: "My Exercises",
+    exerciseName: "Exercise Name", muscleGroup: "Muscle Group", equipment2: "Equipment",
+    noCustomExercises: "No custom exercises yet",
+    editLog: "Edit Log", addExerciseToLog: "Add Exercise", saveLog: "Save Changes",
+    replaceExercise: "Replace",
+    photoAnalysis: "Analysis", noAnalysisYet: "Tap to analyze with AI",
+    restSeconds: "Rest (sec)",
   },
   fr: {
     training: "Entraînement", log: "Journal", stats: "Stats", nutrition: "Nutrition", progress: "Progrès", aiCoach: "Coach IA",
@@ -151,6 +166,20 @@ const T = {
     aiSuggestReady: "L'IA a analysé vos dernières séances", reviewSuggestions: "Voir les suggestions",
     dismissSuggest: "Plus tard", autoSuggestTitle: "Amélioration disponible",
     autoSuggestDesc: "D'après vos dernières séances, nous avons trouvé des améliorations pour votre programme.",
+    startWorkout: "Démarrer", workoutTimer: "Chrono séance", restTimer: "Temps de repos",
+    restComplete: "Repos terminé ! Prochaine série 💪", startRest: "Début repos",
+    skipRest: "Passer", gymTime: "Temps en salle", sessionSummary: "Résumé",
+    totalTime: "Durée totale", setsLogged: "Séries", avgRest: "Repos moy.",
+    viewSummary: "Voir résumé", closeSummary: "Terminer",
+    replacePlan: "Remplacer les séances", addToPlan: "Ajouter aux séances",
+    aiSuggestPrompt: "Que souhaitez-vous faire avec ce plan ?",
+    createExercise: "Créer exercice", customExercises: "Mes exercices",
+    exerciseName: "Nom de l'exercice", muscleGroup: "Groupe musculaire", equipment2: "Équipement",
+    noCustomExercises: "Aucun exercice personnalisé",
+    editLog: "Modifier", addExerciseToLog: "Ajouter exercice", saveLog: "Sauvegarder",
+    replaceExercise: "Remplacer",
+    photoAnalysis: "Analyse", noAnalysisYet: "Appuyer pour analyser",
+    restSeconds: "Repos (sec)",
   },
 };
 
@@ -556,16 +585,16 @@ function ExerciseDemo({ exercise, onClose, t: tt }) {
   const tip = EXERCISE_TIPS[exercise.name] || `Keep full control through every rep. Focus tension on the target muscles (${exercise.muscles?.join(", ")}). Avoid momentum.`;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 400, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
-      <div style={{ padding: "18px 20px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #1a1a24" }}>
-        <div>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
+      <div style={{ paddingTop: "max(18px, env(safe-area-inset-top, 18px))", padding: "18px 20px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #1a1a24", flexShrink: 0 }}>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>{exercise.name}</div>
           <div style={{ color: "#e63c2f", fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
             {exercise.equipment} · {exercise.muscles?.join(", ")}
           </div>
         </div>
-        <button onClick={onClose} style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 10, padding: 8, color: "#aaa", flexShrink: 0, marginLeft: 12 }}>
-          <Icon name="close" size={18} />
+        <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 10, padding: 10, color: "#aaa", flexShrink: 0, marginLeft: 12, minWidth: 44, minHeight: 44 }}>
+          <Icon name="close" size={20} />
         </button>
       </div>
       <div style={{ flex: 1, overflow: "auto", padding: "16px 18px 32px" }}>
@@ -638,6 +667,7 @@ export default function GymTracker() {
   const [workoutLogs, setWorkoutLogs] = useState(() => load(STORAGE_KEYS.workoutLogs, []));
   const [nutritionLogs, setNutritionLogs] = useState(() => load(STORAGE_KEYS.nutritionLogs, []));
   const [photos, setPhotos] = useState(() => load(STORAGE_KEYS.photos, []));
+  const [customExercises, setCustomExercises] = useState(() => load(STORAGE_KEYS.customExercises, []));
   const [showProfileSetup, setShowProfileSetup] = useState(!profile.name);
   const [autoSuggestData, setAutoSuggestData] = useState(null); // null or { changes: [...] }
   const [showAutoSuggest, setShowAutoSuggest] = useState(false);
@@ -651,6 +681,7 @@ export default function GymTracker() {
   useEffect(() => { save(STORAGE_KEYS.workoutLogs, workoutLogs); }, [workoutLogs]);
   useEffect(() => { save(STORAGE_KEYS.nutritionLogs, nutritionLogs); }, [nutritionLogs]);
   useEffect(() => { save(STORAGE_KEYS.photos, photos); }, [photos]);
+  useEffect(() => { save(STORAGE_KEYS.customExercises, customExercises); }, [customExercises]);
 
   // Auto-suggest: trigger AI analysis every 3 new sessions
   useEffect(() => {
@@ -810,9 +841,9 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
-        {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} t={t} />}
-        {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} t={t} />}
-        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} t={t} />}
+        {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />}
+        {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} customExercises={customExercises} t={t} />}
+        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} t={t} />}
         {tab === "nutrition" && <NutritionTab nutritionLogs={nutritionLogs} setNutritionLogs={setNutritionLogs} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} t={t} />}
         {tab === "ai" && <AICoachTab profile={profile} sessions={sessions} workoutLogs={workoutLogs} nutritionLogs={nutritionLogs} photos={photos} setSessions={setSessions} t={t} />}
@@ -982,7 +1013,7 @@ function ProfileModal({ profile, setProfile, onClose, t }) {
   );
 }
 
-function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
+function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExercises, setCustomExercises, t }) {
   const [showCreate, setShowCreate] = useState(false);
   const [editSession, setEditSession] = useState(null);
   const [showAlts, setShowAlts] = useState(null);
@@ -1080,7 +1111,7 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
       })}
 
       {(showCreate || editSession) && (
-        <SessionEditor initial={editSession} onSave={s => { if (editSession) setSessions(p => p.map((x, i) => i === editSession.idx ? s : x)); else setSessions(p => [...p, { ...s, id: Date.now() }]); setShowCreate(false); setEditSession(null); }} onClose={() => { setShowCreate(false); setEditSession(null); }} t={t} />
+        <SessionEditor initial={editSession} onSave={s => { if (editSession) setSessions(p => p.map((x, i) => i === editSession.idx ? s : x)); else setSessions(p => [...p, { ...s, id: Date.now() }]); setShowCreate(false); setEditSession(null); }} onClose={() => { setShowCreate(false); setEditSession(null); }} customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />
       )}
 
       {showAlts && (
@@ -1101,20 +1132,152 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, t }) {
   );
 }
 
-function SessionEditor({ initial, onSave, onClose, t: tt }) {
+function CreateExerciseModal({ onSave, onClose, t }) {
+  const [form, setForm] = useState({ name: "", muscles: "", equipment: "barbell" });
+  const muscleOptions = ["chest", "back", "shoulders", "biceps", "triceps", "quads", "hamstrings", "glutes", "calves", "core", "abs"];
+  const equipOptions = ["barbell", "dumbbell", "cable", "machine", "bodyweight", "kettlebell", "other"];
+  const valid = form.name.trim() && form.muscles.trim();
+  const handleSave = () => {
+    if (!valid) return;
+    onSave({
+      id: Date.now(), name: form.name.trim(), isCustom: true,
+      muscles: form.muscles.split(",").map(m => m.trim().toLowerCase()).filter(Boolean),
+      equipment: form.equipment,
+    });
+  };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.93)", zIndex: 500, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", padding: "22px 22px calc(22px + env(safe-area-inset-bottom, 0px))", width: "100%", maxHeight: "80vh", overflow: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 18 }}>✏️ {t.createExercise}</div>
+          <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: "#e63c2f", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5 }}>{t.exerciseName}</div>
+          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Cable Lateral Raise..." autoFocus
+            style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48 }} />
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, color: "#e63c2f", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5 }}>{t.muscleGroup}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {muscleOptions.map(m => {
+              const selected = form.muscles.split(",").map(x => x.trim().toLowerCase()).includes(m);
+              return (
+                <button key={m} onClick={() => {
+                  const arr = form.muscles.split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+                  const next = selected ? arr.filter(x => x !== m) : [...arr, m];
+                  setForm(f => ({ ...f, muscles: next.join(", ") }));
+                }} style={{ background: selected ? "#e63c2f" : "#111", border: `1px solid ${selected ? "#e63c2f" : "#2a2a3a"}`, borderRadius: 8, padding: "6px 12px", color: selected ? "#fff" : "#888", fontSize: 12, fontWeight: 600 }}>
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+          <input value={form.muscles} onChange={e => setForm(f => ({ ...f, muscles: e.target.value }))} placeholder="or type: chest, triceps..."
+            style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "10px 14px", color: "#e8e4dc", fontSize: 14 }} />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10, color: "#e63c2f", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5 }}>{t.equipment2 || "Equipment"}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {equipOptions.map(eq => (
+              <button key={eq} onClick={() => setForm(f => ({ ...f, equipment: eq }))} style={{ background: form.equipment === eq ? "#e63c2f" : "#111", border: `1px solid ${form.equipment === eq ? "#e63c2f" : "#2a2a3a"}`, borderRadius: 8, padding: "6px 12px", color: form.equipment === eq ? "#fff" : "#888", fontSize: 12, fontWeight: 600 }}>
+                {eq}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={handleSave} disabled={!valid} className="gym-btn" style={{ width: "100%", background: valid ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: valid ? 1 : 0.5 }}>
+          + {t.createExercise}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExercisePickerModal({ mode, replaceIdx, customExercises, onAdd, onReplace, onClose, t }) {
+  const [search, setSearch] = useState("");
+  const [showDemo, setShowDemo] = useState(null);
+  const searchLower = search.toLowerCase().trim();
+  const allCustom = customExercises || [];
+
+  const filteredDB = {};
+  Object.entries(EXERCISE_DB).forEach(([cat, exs]) => {
+    const filtered = searchLower ? exs.filter(ex =>
+      ex.name.toLowerCase().includes(searchLower) ||
+      ex.muscles?.some(m => m.toLowerCase().includes(searchLower)) ||
+      ex.equipment?.toLowerCase().includes(searchLower)
+    ) : exs;
+    if (filtered.length > 0) filteredDB[cat] = filtered;
+  });
+
+  const filteredCustom = searchLower
+    ? allCustom.filter(ex => ex.name.toLowerCase().includes(searchLower) || ex.muscles?.some(m => m.toLowerCase().includes(searchLower)))
+    : allCustom;
+
+  const handleSelect = (ex) => {
+    if (mode === "replace") onReplace(ex);
+    else { onAdd(ex); onClose(); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 400, display: "flex", flexDirection: "column" }}>
+      <div style={{ flexShrink: 0, padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontWeight: 800, fontSize: 17 }}>{mode === "replace" ? t.replaceExercise : t.addExerciseToLog}</div>
+          <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+        </div>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search exercises..." autoFocus
+          style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48, outline: "none" }} />
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "12px 18px", WebkitOverflowScrolling: "touch" }}>
+        {filteredCustom.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 7 }}>⭐ {t.customExercises}</div>
+            {filteredCustom.map(ex => (
+              <div key={ex.id || ex.name} style={{ display: "flex", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, marginBottom: 6, overflow: "hidden" }}>
+                <button onClick={() => handleSelect(ex)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", padding: "12px 14px", color: "#e8e4dc", minHeight: 48 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+                  <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{ex.equipment} · {ex.muscles?.join(", ")}</div>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {Object.entries(filteredDB).map(([cat, exs]) => (
+          <div key={cat} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 7 }}>{cat}</div>
+            {exs.map(ex => (
+              <div key={ex.name} style={{ display: "flex", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, marginBottom: 6, overflow: "hidden" }}>
+                <button onClick={() => handleSelect(ex)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", padding: "12px 14px", color: "#e8e4dc", minHeight: 48 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+                  <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{ex.equipment} · {ex.muscles?.join(", ")}</div>
+                </button>
+                <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "none", borderLeft: "1px solid #1a1a24", padding: "0 14px", color: "#e63c2f", fontSize: 12, fontWeight: 700 }}>{t.howBtn}</button>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div style={{ height: 40 }} />
+      </div>
+      {showDemo && <ExerciseDemo exercise={showDemo} onClose={() => setShowDemo(null)} t={t} />}
+    </div>
+  );
+}
+
+function SessionEditor({ initial, onSave, onClose, customExercises, setCustomExercises, t: tt }) {
   const t = tt || T.en;
   const [name, setName] = useState(initial?.name || "");
   const [exercises, setExercises] = useState(initial?.exercises || []);
   const [showPicker, setShowPicker] = useState(false);
   const [showDemo, setShowDemo] = useState(null);
   const [search, setSearch] = useState("");
+  const [showCreateEx, setShowCreateEx] = useState(false);
 
-  const addEx = ex => { setExercises(p => [...p, { ...ex, sets: 3, reps: "8-12", weight: "" }]); setShowPicker(false); setSearch(""); };
+  const addEx = ex => { setExercises(p => [...p, { ...ex, sets: 3, reps: "8-12", weight: "", restSeconds: "90" }]); setShowPicker(false); setSearch(""); };
   const updateEx = (idx, f, v) => setExercises(p => p.map((e, i) => i === idx ? { ...e, [f]: v } : e));
   const removeEx = idx => setExercises(p => p.filter((_, i) => i !== idx));
   const muscles = [...new Set(exercises.flatMap(e => e.muscles || []))];
 
-  // Filter exercises by search
   const filteredDB = {};
   const searchLower = search.toLowerCase().trim();
   Object.entries(EXERCISE_DB).forEach(([cat, exs]) => {
@@ -1127,6 +1290,9 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
     if (filtered.length > 0) filteredDB[cat] = filtered;
   });
 
+  const allCustom = customExercises || [];
+  const filteredCustom = searchLower ? allCustom.filter(ex => ex.name.toLowerCase().includes(searchLower) || ex.muscles?.some(m => m.toLowerCase().includes(searchLower))) : allCustom;
+
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
       {/* Header */}
@@ -1135,7 +1301,6 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
         <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
       </div>
 
-      {/* Everything scrolls — including the save button */}
       <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch" }}>
         <div style={{ padding: "16px 20px" }}>
         <div style={{ marginBottom: 14 }}>
@@ -1162,26 +1327,25 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, alignItems: "center" }}>
               <div style={{ fontWeight: 700, fontSize: 14 }}>{ex.name}</div>
               <div style={{ display: "flex", gap: 5 }}>
-                <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 6, padding: "4px 8px", color: "#e63c2f", fontSize: 11 }}>{t.howBtn}</button>
+                {!ex.isCustom && <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 6, padding: "4px 8px", color: "#e63c2f", fontSize: 11 }}>{t.howBtn}</button>}
                 <button onClick={() => removeEx(idx)} style={{ background: "none", border: "none", color: "#444", padding: 4 }}><Icon name="trash" size={14} /></button>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 7 }}>
-              {["sets", "reps", "weight"].map(f => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 7 }}>
+              {["sets", "reps", "weight", "restSeconds"].map(f => (
                 <div key={f}>
-                  <div style={{ fontSize: 9, color: "#555", marginBottom: 2, textTransform: "uppercase", letterSpacing: 1 }}>{f === "weight" ? t.kg : f === "sets" ? t.sets : t.reps}</div>
-                  <input value={ex[f] || ""} onChange={e => updateEx(idx, f, e.target.value)} placeholder={f === "weight" ? "BW" : ""}
-                    style={{ width: "100%", background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 6, padding: "8px", color: "#e8e4dc", fontSize: 14 }} />
+                  <div style={{ fontSize: 9, color: "#555", marginBottom: 2, textTransform: "uppercase", letterSpacing: 1 }}>
+                    {f === "weight" ? t.kg : f === "sets" ? t.sets : f === "reps" ? t.reps : "Rest(s)"}
+                  </div>
+                  <input value={ex[f] || ""} onChange={e => updateEx(idx, f, e.target.value)} placeholder={f === "weight" ? "BW" : f === "restSeconds" ? "90" : ""}
+                    style={{ width: "100%", background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 6, padding: "8px 6px", color: "#e8e4dc", fontSize: 13 }} />
                 </div>
               ))}
             </div>
           </div>
         ))}
 
-        {/* Save button — inside scroll, always reachable */}
         <button onClick={() => name && onSave({ id: initial?.id || Date.now(), name, exercises })} className="gym-btn" style={{ width: "100%", background: name ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: name ? 1 : 0.5, marginTop: 8 }}>{t.saveSession}</button>
-
-        {/* Big bottom spacer — guarantees button is always above iPhone home bar */}
         <div style={{ height: 80 }} />
         </div>
       </div>
@@ -1192,18 +1356,31 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
           <div style={{ flexShrink: 0, padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontWeight: 800, fontSize: 17 }}>{t.addExerciseTitle}</div>
-              <button onClick={() => { setShowPicker(false); setSearch(""); }} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => setShowCreateEx(true)} className="gym-btn" style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 8, padding: "8px 12px", color: "#e63c2f", fontSize: 12, fontWeight: 700, minHeight: 36 }}>+ {t.createExercise}</button>
+                <button onClick={() => { setShowPicker(false); setSearch(""); }} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+              </div>
             </div>
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="🔍 Search exercises, muscles, equipment..."
-              autoFocus
-              style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48, outline: "none" }}
-            />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search exercises, muscles, equipment..." autoFocus
+              style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48, outline: "none" }} />
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: "12px 18px", WebkitOverflowScrolling: "touch" }}>
-            {Object.keys(filteredDB).length === 0 ? (
+            {/* Custom exercises section */}
+            {filteredCustom.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 7 }}>⭐ {t.customExercises}</div>
+                {filteredCustom.map(ex => (
+                  <div key={ex.id} style={{ display: "flex", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, marginBottom: 6, overflow: "hidden" }}>
+                    <button onClick={() => addEx(ex)} style={{ flex: 1, textAlign: "left", background: "none", border: "none", padding: "12px 14px", color: "#e8e4dc", minHeight: 48 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+                      <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{ex.equipment} · {ex.muscles?.join(", ")}</div>
+                    </button>
+                    <button onClick={() => setCustomExercises && setCustomExercises(p => p.filter(e => e.id !== ex.id))} style={{ background: "#1a1a24", border: "none", borderLeft: "1px solid #1a1a24", padding: "0 12px", color: "#444" }}><Icon name="trash" size={13} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {Object.keys(filteredDB).length === 0 && filteredCustom.length === 0 ? (
               <div style={{ textAlign: "center", padding: 40, color: "#555", fontSize: 14 }}>No exercises match "{search}"</div>
             ) : (
               Object.entries(filteredDB).map(([cat, exs]) => (
@@ -1226,6 +1403,13 @@ function SessionEditor({ initial, onSave, onClose, t: tt }) {
         </div>
       )}
       {showDemo && <ExerciseDemo exercise={showDemo} onClose={() => setShowDemo(null)} t={t} />}
+      {showCreateEx && (
+        <CreateExerciseModal
+          onSave={ex => { setCustomExercises && setCustomExercises(p => [...p, ex]); addEx(ex); setShowCreateEx(false); }}
+          onClose={() => setShowCreateEx(false)}
+          t={t}
+        />
+      )}
     </div>
   );
 }
@@ -1280,15 +1464,61 @@ function getExFieldConfig(ex) {
   return { label: "Weight", placeholder: "kg", unit: "kg" };
 }
 
-function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, t }) {
+function RestTimer({ seconds, onDone, onSkip, t }) {
+  const [remaining, setRemaining] = useState(seconds);
+  const intervalRef = useRef(null);
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) { clearInterval(intervalRef.current); onDone(); return 0; }
+        return r - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+  }, []);
+  const pct = remaining / seconds;
+  const r = 42, circ = 2 * Math.PI * r;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 350, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ fontSize: 12, color: "#e63c2f", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 20 }}>{t.restTimer}</div>
+      <svg width="120" height="120" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r={r} fill="none" stroke="#1a1a24" strokeWidth="8"/>
+        <circle cx="50" cy="50" r={r} fill="none" stroke="#e63c2f" strokeWidth="8"
+          strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
+          strokeLinecap="round" transform="rotate(-90 50 50)" style={{ transition: "stroke-dashoffset 0.9s linear" }}/>
+        <text x="50" y="56" textAnchor="middle" fill="#e8e4dc" fontSize="28" fontWeight="800" fontFamily="Syne">{remaining}</text>
+      </svg>
+      <button onClick={onSkip} style={{ marginTop: 28, background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 28px", color: "#888", fontWeight: 700, fontSize: 14 }}>{t.skipRest}</button>
+    </div>
+  );
+}
+
+function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customExercises, t }) {
   const [sel, setSel] = useState(null);
   const [sessionExercises, setSessionExercises] = useState([]);
   const [logData, setLogData] = useState({});
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
   const [showDemo, setShowDemo] = useState(null);
+  const [started, setStarted] = useState(false);
+  const [startTime, setStartTime] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [restTimer, setRestTimer] = useState(null); // { seconds }
+  const [restLog, setRestLog] = useState([]); // completed rest durations
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [savedLog, setSavedLog] = useState(null);
+  const timerRef = useRef(null);
 
-  // Get last logged data for an exercise: weight + reps per set
+  useEffect(() => {
+    if (started && startTime) {
+      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [started, startTime]);
+
+  const fmtTime = s => `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
   const getLastLoggedData = (ex, numSets) => {
     for (let i = workoutLogs.length - 1; i >= 0; i--) {
       const log = workoutLogs[i];
@@ -1309,51 +1539,77 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, t }) {
     exs.forEach((ex, i) => {
       const numSets = +ex.sets || 3;
       const lastData = getLastLoggedData(ex, numSets);
-
       if (lastData) {
-        // Pre-fill from last logged session (weight + reps per set)
         d[i] = Array.from({ length: numSets }, (_, si) => {
           const prev = lastData[si] || lastData[lastData.length - 1] || {};
           return { weight: prev.weight || "", reps: prev.reps || "", done: false };
         });
       } else {
-        // Fall back to program weight, use program reps as placeholder
         const progWeight = (ex.weight && ex.weight.toString().trim() !== "") ? ex.weight.toString() : "";
         d[i] = Array.from({ length: numSets }, () => ({ weight: progWeight, reps: "", done: false }));
       }
     });
-    setLogData(d); setSel(s); setSessionExercises(exs); setSaved(false); setNotes("");
+    setLogData(d); setSel(s); setSessionExercises(exs); setSaved(false); setNotes(""); setStarted(false); setElapsed(0); setRestLog([]); setShowSummary(false); setSavedLog(null);
   };
 
-  // When user changes a weight in any set, propagate to all sets of that exercise (UX convenience)
-  // and write the new value back to the program session for future pre-fill
   const handleWeightChange = (ei, si, val) => {
-    setLogData(d => ({
-      ...d,
-      [ei]: d[ei].map((s, idx) => idx === si ? { ...s, weight: val } : s),
-    }));
-    // Write back to session program so next time it's pre-filled
+    setLogData(d => ({ ...d, [ei]: d[ei].map((s, idx) => idx === si ? { ...s, weight: val } : s) }));
     const ex = sessionExercises[ei];
     if (ex && sel) {
       setSessions(prev => prev.map(sess => {
         if (sess.id !== sel.id) return sess;
-        const newExs = (sess.exercises || []).map((e, idx) =>
-          idx === ei ? { ...e, weight: val } : e
-        );
-        return { ...sess, exercises: newExs };
+        return { ...sess, exercises: (sess.exercises || []).map((e, idx) => idx === ei ? { ...e, weight: val } : e) };
       }));
     }
   };
 
-  const saveLog = () => {
-    setWorkoutLogs(p => [...p, {
-      id: Date.now(), date: new Date().toISOString(),
-      sessionId: sel.id, sessionName: sel.name,
-      exercises: sessionExercises.map((ex, i) => ({ ...ex, sets: logData[i] })), notes
-    }]);
-    setSaved(true);
+  const handleSetDone = (ei, si) => {
+    setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, done: !s.done } : s) }));
+    const ex = sessionExercises[ei];
+    const wasNotDone = !(logData[ei]?.[si]?.done);
+    if (wasNotDone && started) {
+      const restSecs = ex.restSeconds ? parseInt(ex.restSeconds) : 90;
+      setRestTimer({ seconds: restSecs });
+    }
   };
 
+  const addExerciseToSession = (ex) => {
+    const numSets = +ex.sets || 3;
+    const newIdx = sessionExercises.length;
+    setSessionExercises(p => [...p, ex]);
+    const lastData = getLastLoggedData(ex, numSets);
+    const newSets = lastData
+      ? Array.from({ length: numSets }, (_, si) => { const prev = lastData[si] || lastData[lastData.length-1] || {}; return { weight: prev.weight||"", reps: prev.reps||"", done: false }; })
+      : Array.from({ length: numSets }, () => ({ weight: ex.weight||"", reps: "", done: false }));
+    setLogData(d => ({ ...d, [newIdx]: newSets }));
+    setShowAddExercise(false);
+  };
+
+  const replaceExercise = (ei, newEx) => {
+    const numSets = sessionExercises[ei] ? +sessionExercises[ei].sets || 3 : 3;
+    setSessionExercises(p => p.map((e, i) => i === ei ? { ...newEx, sets: e.sets, reps: e.reps, restSeconds: e.restSeconds } : e));
+    const lastData = getLastLoggedData(newEx, numSets);
+    const newSets = lastData
+      ? Array.from({ length: numSets }, (_, si) => { const prev = lastData[si] || lastData[lastData.length-1] || {}; return { weight: prev.weight||"", reps: prev.reps||"", done: false }; })
+      : Array.from({ length: numSets }, () => ({ weight: newEx.weight||"", reps: "", done: false }));
+    setLogData(d => ({ ...d, [ei]: newSets }));
+  };
+
+  const saveLog = () => {
+    const logEntry = {
+      id: Date.now(), date: new Date().toISOString(),
+      sessionId: sel.id, sessionName: sel.name,
+      exercises: sessionExercises.map((ex, i) => ({ ...ex, sets: logData[i] })),
+      notes, durationSeconds: elapsed,
+    };
+    setWorkoutLogs(p => [...p, logEntry]);
+    setSavedLog(logEntry);
+    setSaved(true);
+    clearInterval(timerRef.current);
+    setShowSummary(true);
+  };
+
+  // ─── Session select screen ───────────────────────────────────────────
   if (!sel) return (
     <div style={{ padding: 18 }} className="slide-in">
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 5 }}>{t.logWorkout}</div>
@@ -1372,119 +1628,165 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, t }) {
     </div>
   );
 
-  return (
-    <div style={{ padding: 18 }} className="slide-in">
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <button onClick={() => setSel(null)} style={{ background: "#1a1a24", border: "none", borderRadius: 7, padding: "5px 9px", color: "#888" }}>←</button>
-        <div>
-          <div style={{ fontSize: 19, fontWeight: 800 }}>{sel.name}</div>
-          <div style={{ color: "#555", fontSize: 12 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+  // ─── Session summary ─────────────────────────────────────────────────
+  if (showSummary && savedLog) {
+    const totalSets = savedLog.exercises?.reduce((s, ex) => s + (ex.sets?.filter(st => st.done)?.length || 0), 0) || 0;
+    const totalVolume = savedLog.exercises?.reduce((s, ex) => s + (ex.sets || []).reduce((ss, st) => ss + ((+st.weight||0) * (+st.reps||0)), 0), 0) || 0;
+    const avgRestSec = restLog.length > 0 ? Math.round(restLog.reduce((a, b) => a + b, 0) / restLog.length) : null;
+    return (
+      <div style={{ padding: 18 }} className="slide-in">
+        <div style={{ textAlign: "center", paddingTop: 20, paddingBottom: 16 }}>
+          <div style={{ fontSize: 54 }}>🔥</div>
+          <div style={{ fontSize: 22, fontWeight: 800, marginTop: 10 }}>{t.sessionLogged}</div>
+          <div style={{ color: "#555", fontSize: 13, marginTop: 4 }}>{savedLog.sessionName}</div>
         </div>
-      </div>
-      {saved ? (
-        <div style={{ textAlign: "center", padding: 48 }}>
-          <div style={{ fontSize: 52 }}>🔥</div>
-          <div style={{ fontSize: 22, fontWeight: 800, marginTop: 12 }}>{t.sessionLogged}</div>
-          <div style={{ color: "#555", fontSize: 13, marginTop: 6 }}>{t.weightsSaved}</div>
-          <button onClick={() => setSel(null)} className="gym-btn" style={{ marginTop: 20, background: "#e63c2f", border: "none", borderRadius: 12, padding: "12px 28px", color: "#fff", fontWeight: 700, minHeight: 48 }}>{t.done}</button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+          {[
+            [fmtTime(elapsed), t.totalTime, "⏱"],
+            [totalSets, t.setsCompleted, "✅"],
+            [totalVolume > 0 ? `${(totalVolume/1000).toFixed(1)}t` : "—", t.volume, "💪"],
+            [avgRestSec ? `${avgRestSec}s` : "—", t.avgRest, "⏸"],
+          ].map(([val, label, icon]) => (
+            <div key={label} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "18px 12px", textAlign: "center" }}>
+              <div style={{ fontSize: 11, marginBottom: 4 }}>{icon}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#e63c2f" }}>{val}</div>
+              <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 2 }}>{label}</div>
+            </div>
+          ))}
         </div>
-      ) : (
-        <>
-          {sessionExercises.map((ex, ei) => {
-            const sets = logData[ei] || [];
-            const fieldCfg = getExFieldConfig(ex);
-            const isBodyweight = !!fieldCfg.bodyweight;
-            const isDuration = fieldCfg.unit === "s";
-
+        <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "14px 16px", marginBottom: 16 }}>
+          {savedLog.exercises?.map((ex, ei) => {
+            const doneSets = (ex.sets || []).filter(s => s.done);
             return (
-              <div key={ei} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: 13, marginBottom: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{ex.name}</div>
-                    {/* Equipment badge */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
-                      <span style={{ fontSize: 9, background: "#1a1a24", borderRadius: 4, padding: "1px 6px", color: "#555", textTransform: "uppercase", letterSpacing: 1 }}>{ex.equipment}</span>
-                      {isBodyweight && <span style={{ fontSize: 9, background: "#4ade801a", border: "1px solid #4ade8033", borderRadius: 4, padding: "1px 6px", color: "#4ade80", fontWeight: 700 }}>{t.bodyweight}</span>}
-                      {isDuration && <span style={{ fontSize: 9, background: "#f5a6231a", border: "1px solid #f5a62333", borderRadius: 4, padding: "1px 6px", color: "#f5a623", fontWeight: 700 }}>{t.timed}</span>}
-                    </div>
-                  </div>
-                  <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "4px 9px", color: "#e63c2f", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}>
-                    <Icon name="info" size={12} /> {t.howTo}
-                  </button>
-                </div>
-
-                {/* Column headers — dynamic label */}
-                <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, marginTop: 8 }}>
-                  {["#", fieldCfg.label, isDuration ? "Rounds" : t.reps || "Reps", "✓"].map(h => (
-                    <div key={h} style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1 }}>{h}</div>
-                  ))}
-                </div>
-
-                {sets.map((set, si) => (
-                  <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                    <div style={{ color: "#444", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
-                    <input
-                      value={set.weight}
-                      onChange={e => handleWeightChange(ei, si, e.target.value)}
-                      placeholder={fieldCfg.placeholder}
-                      inputMode="decimal"
-                      style={{
-                        background: "#0a0a0f",
-                        border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`,
-                        borderRadius: 8, padding: "10px 10px",
-                        color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44,
-                      }}
-                    />
-                    <input
-                      value={set.reps}
-                      onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))}
-                      placeholder={ex.reps || (isDuration ? "rounds" : "reps")}
-                      inputMode="numeric"
-                      style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }}
-                    />
-                    <button
-                      onClick={() => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, done: !s.done } : s) }))}
-                      className="gym-btn"
-                      style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}
-                    >
-                      <Icon name="check" size={18} />
-                    </button>
-                  </div>
-                ))}
-
-                {/* Apply first set's value to all sets if they differ */}
-                {sets.length > 1 && sets[0].weight && !sets.every(s => s.weight === sets[0].weight) && (
-                  <button
-                    onClick={() => {
-                      const v = sets[0].weight;
-                      setLogData(d => ({ ...d, [ei]: d[ei].map(s => ({ ...s, weight: v })) }));
-                      handleWeightChange(ei, 0, v);
-                    }}
-                    className="gym-btn"
-                    style={{ marginTop: 6, width: "100%", background: "#e63c2f18", border: "1px solid #e63c2f44", borderRadius: 8, padding: "10px 10px", color: "#e63c2f", fontSize: 12, fontWeight: 700, minHeight: 40 }}
-                  >
-                    {t.applyToAll} ({sets[0].weight}{fieldCfg.unit === "kg" ? "kg" : fieldCfg.unit})
-                  </button>
-                )}
+              <div key={ei} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingVertical: 6, borderBottom: ei < savedLog.exercises.length-1 ? "1px solid #1a1a24" : "none", paddingTop: 6, paddingBottom: 6 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{ex.name}</div>
+                <div style={{ color: doneSets.length > 0 ? "#4ade80" : "#555", fontSize: 13, fontWeight: 700 }}>{doneSets.length} {t.sets}</div>
               </div>
             );
           })}
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t.sessionNotes} style={{ width: "100%", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 14, resize: "none", height: 72, marginBottom: 14 }} />
-          <button onClick={saveLog} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52 }}>💪 {t.completeSession}</button>
-        </>
+        </div>
+        <button onClick={() => setSel(null)} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52 }}>{t.closeSummary}</button>
+      </div>
+    );
+  }
+
+  // ─── Logging screen ──────────────────────────────────────────────────
+  return (
+    <div style={{ padding: 18 }} className="slide-in">
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: started ? 10 : 18 }}>
+        <button onClick={() => { if (started && !saved) { if (!window.confirm("Quit session?")) return; } clearInterval(timerRef.current); setSel(null); }} style={{ background: "#1a1a24", border: "none", borderRadius: 7, padding: "5px 9px", color: "#888" }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 19, fontWeight: 800 }}>{sel.name}</div>
+          <div style={{ color: "#555", fontSize: 12 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
+        </div>
+        {started && (
+          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "6px 12px", textAlign: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#e63c2f", fontVariantNumeric: "tabular-nums" }}>{fmtTime(elapsed)}</div>
+            <div style={{ fontSize: 8, color: "#555", letterSpacing: 1 }}>{t.gymTime?.toUpperCase()}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Start button */}
+      {!started && (
+        <button onClick={() => { setStarted(true); setStartTime(Date.now()); }} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          ▶ {t.startWorkout}
+        </button>
+      )}
+
+      {sessionExercises.map((ex, ei) => {
+        const sets = logData[ei] || [];
+        const fieldCfg = getExFieldConfig(ex);
+        const isBodyweight = !!fieldCfg.bodyweight;
+        const isDuration = fieldCfg.unit === "s";
+        return (
+          <div key={ei} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: 13, marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{ex.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 9, background: "#1a1a24", borderRadius: 4, padding: "1px 6px", color: "#555", textTransform: "uppercase", letterSpacing: 1 }}>{ex.equipment}</span>
+                  {isBodyweight && <span style={{ fontSize: 9, background: "#4ade801a", border: "1px solid #4ade8033", borderRadius: 4, padding: "1px 6px", color: "#4ade80", fontWeight: 700 }}>{t.bodyweight}</span>}
+                  {isDuration && <span style={{ fontSize: 9, background: "#f5a6231a", border: "1px solid #f5a62333", borderRadius: 4, padding: "1px 6px", color: "#f5a623", fontWeight: 700 }}>{t.timed}</span>}
+                  {ex.restSeconds && <span style={{ fontSize: 9, background: "#2563eb1a", border: "1px solid #2563eb33", borderRadius: 4, padding: "1px 6px", color: "#60a5fa", fontWeight: 700 }}>⏱ {ex.restSeconds}s</span>}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 5 }}>
+                <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "4px 9px", color: "#e63c2f", fontSize: 11, fontWeight: 700 }}><Icon name="info" size={11} /></button>
+                <button onClick={() => setShowAddExercise({ mode: "replace", idx: ei })} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "4px 9px", color: "#888", fontSize: 11, fontWeight: 700 }}><Icon name="swap" size={11} /></button>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, marginTop: 8 }}>
+              {["#", fieldCfg.label, isDuration ? "Rounds" : t.reps || "Reps", "✓"].map(h => (
+                <div key={h} style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1 }}>{h}</div>
+              ))}
+            </div>
+            {sets.map((set, si) => (
+              <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                <div style={{ color: "#444", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
+                <input value={set.weight} onChange={e => handleWeightChange(ei, si, e.target.value)} placeholder={fieldCfg.placeholder} inputMode="decimal"
+                  style={{ background: "#0a0a0f", border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`, borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
+                <input value={set.reps} onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))} placeholder={ex.reps || (isDuration ? "rounds" : "reps")} inputMode="numeric"
+                  style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
+                <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
+                  style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
+                  <Icon name="check" size={18} />
+                </button>
+              </div>
+            ))}
+            {sets.length > 1 && sets[0].weight && !sets.every(s => s.weight === sets[0].weight) && (
+              <button onClick={() => { const v = sets[0].weight; setLogData(d => ({ ...d, [ei]: d[ei].map(s => ({ ...s, weight: v })) })); handleWeightChange(ei, 0, v); }}
+                className="gym-btn" style={{ marginTop: 6, width: "100%", background: "#e63c2f18", border: "1px solid #e63c2f44", borderRadius: 8, padding: "10px 10px", color: "#e63c2f", fontSize: 12, fontWeight: 700, minHeight: 40 }}>
+                {t.applyToAll} ({sets[0].weight}{fieldCfg.unit === "kg" ? "kg" : fieldCfg.unit})
+              </button>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Add exercise to current workout */}
+      {started && (
+        <button onClick={() => setShowAddExercise({ mode: "add" })} className="gym-btn" style={{ width: "100%", background: "#1a1a24", border: "1px dashed #2a2a3a", borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14, color: "#555", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minHeight: 48 }}>
+          <Icon name="plus" size={15} /> {t.addExerciseToLog}
+        </button>
+      )}
+
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t.sessionNotes} style={{ width: "100%", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 14, resize: "none", height: 72, marginBottom: 14 }} />
+      <button onClick={saveLog} disabled={!started} className="gym-btn" style={{ width: "100%", background: started ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: started ? 1 : 0.5 }}>💪 {t.completeSession}</button>
+      <div style={{ height: 20 }} />
+
+      {restTimer && (
+        <RestTimer seconds={restTimer.seconds} t={t}
+          onDone={() => { setRestLog(r => [...r, restTimer.seconds]); setRestTimer(null); }}
+          onSkip={() => { setRestLog(r => [...r, restTimer.seconds - (restTimer.seconds)]); setRestTimer(null); }} />
+      )}
+      {showAddExercise && (
+        <ExercisePickerModal
+          mode={showAddExercise.mode}
+          replaceIdx={showAddExercise.idx}
+          customExercises={customExercises || []}
+          onAdd={ex => addExerciseToSession({ ...ex, sets: ex.sets || 3, reps: ex.reps || "10", weight: ex.weight || "" })}
+          onReplace={(ex) => { replaceExercise(showAddExercise.idx, ex); setShowAddExercise(false); }}
+          onClose={() => setShowAddExercise(false)}
+          t={t}
+        />
       )}
       {showDemo && <ExerciseDemo exercise={showDemo} onClose={() => setShowDemo(null)} t={t} />}
     </div>
   );
 }
 
-function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, t }) {
+function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customExercises, t }) {
   const [selEx, setSelEx] = useState(null);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
   const [showChanges, setShowChanges] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
+  const [editingLog, setEditingLog] = useState(false);
+  const [editLogData, setEditLogData] = useState(null);
+  const [showAddToLog, setShowAddToLog] = useState(false);
 
   const total = workoutLogs.length;
   const week = workoutLogs.filter(l => new Date(l.date) > new Date(Date.now() - 7 * 864e5)).length;
@@ -1501,19 +1803,111 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, t }) {
   const exNames = Object.keys(exProgress).filter(k => exProgress[k].length > 1);
   const deleteLog = id => { setWorkoutLogs(p => p.filter(l => l.id !== id)); if (selectedLog?.id === id) setSelectedLog(null); };
 
-  const hasEnoughData = workoutLogs.length >= 3 && exNames.length >= 2;
+  const startEditLog = (log) => {
+    const d = {};
+    (log.exercises || []).forEach((ex, i) => { d[i] = (ex.sets || []).map(s => ({ ...s })); });
+    setEditLogData({ exercises: [...log.exercises], sets: d, notes: log.notes || "" });
+    setEditingLog(true);
+  };
+
+  const saveEditLog = () => {
+    const updated = {
+      ...selectedLog,
+      exercises: editLogData.exercises.map((ex, i) => ({ ...ex, sets: editLogData.sets[i] || [] })),
+      notes: editLogData.notes,
+    };
+    setWorkoutLogs(p => p.map(l => l.id === updated.id ? updated : l));
+    setSelectedLog(updated);
+    setEditingLog(false);
+    setEditLogData(null);
+  };
 
   // ─── Log Detail View ───────────────────────────────────────────────
   if (selectedLog) {
     const log = selectedLog;
     const totalSets = log.exercises?.reduce((s, ex) => s + (ex.sets?.filter(st => st.done)?.length || 0), 0) || 0;
     const totalVolume = log.exercises?.reduce((s, ex) => s + (ex.sets || []).reduce((ss, st) => ss + ((+st.weight || 0) * (+st.reps || 0)), 0), 0) || 0;
+    const durationSecs = log.durationSeconds;
+
+    if (editingLog && editLogData) {
+      return (
+        <div style={{ padding: 18 }} className="slide-in">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <button onClick={() => { setEditingLog(false); setEditLogData(null); }} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: "10px 14px", color: "#e8e4dc", fontWeight: 700, fontSize: 13, minHeight: 44 }}>←</button>
+            <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>{t.editLog}</div>
+            <button onClick={saveEditLog} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 10, padding: "10px 14px", color: "#fff", fontWeight: 800, fontSize: 13, minHeight: 44 }}>{t.saveLog}</button>
+          </div>
+          {editLogData.exercises.map((ex, ei) => {
+            const fieldCfg = getExFieldConfig(ex);
+            return (
+              <div key={ei} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: 13, marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{ex.name}</div>
+                  <button onClick={() => {
+                    const newExs = editLogData.exercises.filter((_, i) => i !== ei);
+                    const newSets = {};
+                    newExs.forEach((_, ni) => { newSets[ni] = editLogData.sets[ni < ei ? ni : ni + 1] || []; });
+                    setEditLogData(d => ({ ...d, exercises: newExs, sets: newSets }));
+                  }} style={{ background: "none", border: "none", color: "#444" }}><Icon name="trash" size={14} /></button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6 }}>
+                  {["#", fieldCfg.label, t.reps, "✓"].map(h => (
+                    <div key={h} style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1 }}>{h}</div>
+                  ))}
+                </div>
+                {(editLogData.sets[ei] || []).map((set, si) => (
+                  <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                    <div style={{ color: "#444", fontSize: 13 }}>{si + 1}</div>
+                    <input value={set.weight || ""} onChange={e => setEditLogData(d => ({ ...d, sets: { ...d.sets, [ei]: d.sets[ei].map((s, i) => i === si ? { ...s, weight: e.target.value } : s) } }))}
+                      placeholder={fieldCfg.placeholder} inputMode="decimal"
+                      style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px", color: "#e8e4dc", fontSize: 15, width: "100%", minHeight: 44 }} />
+                    <input value={set.reps || ""} onChange={e => setEditLogData(d => ({ ...d, sets: { ...d.sets, [ei]: d.sets[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) } }))}
+                      inputMode="numeric"
+                      style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px", color: "#e8e4dc", fontSize: 15, width: "100%", minHeight: 44 }} />
+                    <button onClick={() => setEditLogData(d => ({ ...d, sets: { ...d.sets, [ei]: d.sets[ei].map((s, i) => i === si ? { ...s, done: !s.done } : s) } }))}
+                      className="gym-btn" style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", minWidth: 44, minHeight: 44 }}>
+                      <Icon name="check" size={16} />
+                    </button>
+                  </div>
+                ))}
+                <button onClick={() => setEditLogData(d => ({ ...d, sets: { ...d.sets, [ei]: [...(d.sets[ei] || []), { weight: "", reps: "", done: false }] } }))}
+                  style={{ width: "100%", background: "none", border: "1px dashed #2a2a3a", borderRadius: 8, padding: "8px", color: "#555", fontSize: 12, marginTop: 4 }}>+ {t.sets}</button>
+              </div>
+            );
+          })}
+          <button onClick={() => setShowAddToLog(true)} className="gym-btn" style={{ width: "100%", background: "#1a1a24", border: "1px dashed #2a2a3a", borderRadius: 12, padding: "12px", fontWeight: 700, fontSize: 14, color: "#555", marginBottom: 12, minHeight: 48, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <Icon name="plus" size={15} /> {t.addExerciseToLog}
+          </button>
+          <textarea value={editLogData.notes} onChange={e => setEditLogData(d => ({ ...d, notes: e.target.value }))} placeholder={t.sessionNotes}
+            style={{ width: "100%", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 14, resize: "none", height: 72 }} />
+          {showAddToLog && (
+            <ExercisePickerModal mode="add" customExercises={customExercises || []}
+              onAdd={ex => {
+                const newIdx = editLogData.exercises.length;
+                const newEx = { ...ex, sets: ex.sets || 3, reps: ex.reps || "10" };
+                setEditLogData(d => ({
+                  ...d,
+                  exercises: [...d.exercises, newEx],
+                  sets: { ...d.sets, [newIdx]: Array.from({ length: +ex.sets || 3 }, () => ({ weight: "", reps: "", done: false })) }
+                }));
+                setShowAddToLog(false);
+              }}
+              onReplace={() => {}} onClose={() => setShowAddToLog(false)} t={t} />
+          )}
+        </div>
+      );
+    }
 
     return (
       <div style={{ padding: 18 }} className="slide-in">
-        <button onClick={() => setSelectedLog(null)} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: "10px 16px", color: "#e8e4dc", fontWeight: 700, fontSize: 13, marginBottom: 16, display: "flex", alignItems: "center", gap: 6, minHeight: 44 }}>
-          ← {t.backToStats}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <button onClick={() => setSelectedLog(null)} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: "10px 14px", color: "#e8e4dc", fontWeight: 700, fontSize: 13, minHeight: 44 }}>
+            ← {t.backToStats}
+          </button>
+          <button onClick={() => startEditLog(log)} className="gym-btn" style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 10, padding: "10px 14px", color: "#888", fontWeight: 700, fontSize: 13, minHeight: 44, marginLeft: "auto" }}>
+            ✏️ {t.editLog}
+          </button>
+        </div>
 
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 22, fontWeight: 800 }}>{log.sessionName}</div>
@@ -1522,20 +1916,18 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, t }) {
           </div>
         </div>
 
-        {/* Summary cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
-          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: "14px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#e63c2f" }}>{log.exercises?.length || 0}</div>
-            <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>{t.exercises}</div>
-          </div>
-          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: "14px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#e63c2f" }}>{totalSets}</div>
-            <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>{t.setsCompleted}</div>
-          </div>
-          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: "14px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#e63c2f" }}>{totalVolume > 0 ? `${(totalVolume/1000).toFixed(1)}t` : "—"}</div>
-            <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>{t.volume}</div>
-          </div>
+        <div style={{ display: "grid", gridTemplateColumns: durationSecs ? "1fr 1fr 1fr 1fr" : "1fr 1fr 1fr", gap: 8, marginBottom: 20 }}>
+          {[
+            [log.exercises?.length || 0, t.exercises],
+            [totalSets, t.setsCompleted],
+            [totalVolume > 0 ? `${(totalVolume/1000).toFixed(1)}t` : "—", t.volume],
+            ...(durationSecs ? [[`${Math.floor(durationSecs/60)}m`, t.totalTime]] : []),
+          ].map(([val, label]) => (
+            <div key={label} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: "14px 8px", textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#e63c2f" }}>{val}</div>
+              <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>{label}</div>
+            </div>
+          ))}
         </div>
 
         {/* Exercise breakdown */}
@@ -1681,6 +2073,7 @@ Be conservative — only suggest weight increases of 2.5-5kg, only when there ar
 
   const fieldLabel = f => f === "weight" ? t.kg : f === "sets" ? t.sets : t.reps;
   const fieldUnit = f => f === "weight" ? "kg" : "";
+  const hasEnoughData = workoutLogs.length >= 3 && exNames.length >= 2;
 
   return (
     <div style={{ padding: 18 }} className="slide-in">
@@ -1958,18 +2351,36 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
 }
 
 function PhotosTab({ photos, setPhotos, t }) {
-  const [analysis, setAnalysis] = useState(""); const [analyzing, setAnalyzing] = useState(false); const [selPhoto, setSelPhoto] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [selPhoto, setSelPhoto] = useState(null);
   const fileRef = useRef();
-  const handleUpload = e => { const file = e.target.files[0]; if (!file) return; const r = new FileReader(); r.onload = ev => setPhotos(p => [...p, { id: Date.now(), date: new Date().toISOString(), dataUrl: ev.target.result }]); r.readAsDataURL(file); };
-  const analyzePhoto = async photo => {
-    setAnalyzing(true); setAnalysis(""); setSelPhoto(photo);
+
+  const handleUpload = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = ev => setPhotos(p => [...p, { id: Date.now(), date: new Date().toISOString(), dataUrl: ev.target.result, analyses: [] }]);
+    r.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const analyzePhoto = async (photo) => {
+    setAnalyzing(true);
+    const updated = { ...photo };
     try {
       const base64 = photo.dataUrl.split(",")[1], mediaType = photo.dataUrl.split(";")[0].split(":")[1];
-      const result = await callAIVision(base64, mediaType, "Analyze this gym progress photo. Comment on visible muscle development, posture, strong areas, areas needing work, and give specific workout recommendations. Be encouraging but honest.");
-      setAnalysis(result);
-    } catch (e) { setAnalysis("Error: " + (e.message || "Analysis failed.")); }
+      const result = await callAIVision(base64, mediaType, "Analyze this gym progress photo in 3-4 sentences max. Note: visible muscle development, posture, strongest areas, one key area to improve, one specific recommendation. Be direct and concise.");
+      const analysis = { date: new Date().toISOString(), text: result };
+      updated.analyses = [...(photo.analyses || []), analysis];
+      setPhotos(p => p.map(x => x.id === photo.id ? updated : x));
+      setSelPhoto(updated);
+    } catch (e) {
+      setSelPhoto({ ...photo, _error: "Analysis failed. Please try again." });
+    }
     setAnalyzing(false);
   };
+
+  const openPhoto = (photo) => setSelPhoto(photo);
+
   return (
     <div style={{ padding: 18 }} className="slide-in">
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 5 }}>{t.progressPhotos}</div>
@@ -1980,26 +2391,56 @@ function PhotosTab({ photos, setPhotos, t }) {
       <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} style={{ display: "none" }} />
       {photos.length === 0 ? <div style={{ textAlign: "center", color: "#555", fontSize: 13 }}>{t.noPhotos}</div> : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {[...photos].reverse().map(photo => (
-            <div key={photo.id} style={{ borderRadius: 11, overflow: "hidden", position: "relative", aspectRatio: "3/4", cursor: "pointer" }} onClick={() => analyzePhoto(photo)}>
-              <img src={photo.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 55%)", display: "flex", alignItems: "flex-end", padding: 9 }}>
-                <div><div style={{ fontSize: 10, color: "#bbb" }}>{new Date(photo.date).toLocaleDateString()}</div><div style={{ fontSize: 11, color: "#e63c2f", fontWeight: 700 }}>{t.tapAnalyze}</div></div>
+          {[...photos].reverse().map(photo => {
+            const latestAnalysis = (photo.analyses || []).slice(-1)[0];
+            return (
+              <div key={photo.id} style={{ borderRadius: 11, overflow: "hidden", position: "relative", aspectRatio: "3/4", cursor: "pointer" }} onClick={() => openPhoto(photo)}>
+                <img src={photo.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)", display: "flex", alignItems: "flex-end", padding: 9 }}>
+                  <div style={{ width: "100%" }}>
+                    <div style={{ fontSize: 10, color: "#bbb" }}>{new Date(photo.date).toLocaleDateString()}</div>
+                    {latestAnalysis
+                      ? <div style={{ fontSize: 10, color: "#4ade80", fontWeight: 700 }}>✓ {t.photoAnalysis}</div>
+                      : <div style={{ fontSize: 10, color: "#e63c2f", fontWeight: 700 }}>{t.noAnalysisYet}</div>}
+                  </div>
+                </div>
+                <button onClick={e => { e.stopPropagation(); setPhotos(p => p.filter(x => x.id !== photo.id)); }} style={{ position: "absolute", top: 7, right: 7, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: 5, padding: 4, color: "#fff" }}><Icon name="trash" size={13} /></button>
               </div>
-              <button onClick={e => { e.stopPropagation(); setPhotos(p => p.filter(x => x.id !== photo.id)); }} style={{ position: "absolute", top: 7, right: 7, background: "rgba(0,0,0,0.6)", border: "none", borderRadius: 5, padding: 4, color: "#fff" }}><Icon name="trash" size={13} /></button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
-      {(analyzing || analysis) && selPhoto && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 200, overflow: "auto", padding: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
-            <div style={{ fontWeight: 800, fontSize: 17 }}>{t.aiAnalysis}</div>
-            <button onClick={() => { setAnalysis(""); setSelPhoto(null); }} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" /></button>
+
+      {/* Photo detail modal */}
+      {selPhoto && (
+        <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
+          <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: "1px solid #1a1a24" }}>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>{new Date(selPhoto.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div>
+            <button onClick={() => setSelPhoto(null)} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" size={22} /></button>
           </div>
-          <img src={selPhoto.dataUrl} alt="" style={{ width: "100%", borderRadius: 11, marginBottom: 14, maxHeight: 260, objectFit: "cover" }} />
-          {analyzing ? <div className="pulse" style={{ color: "#e63c2f", fontWeight: 700 }}>🔍 {t.analyzingPhoto}</div>
-            : <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.8, color: "#ccc", background: "#111", borderRadius: 12, padding: 14 }}>{analysis}</div>}
+          <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
+            <img src={selPhoto.dataUrl} alt="" style={{ width: "100%", borderRadius: 13, marginBottom: 16, maxHeight: 300, objectFit: "cover" }} />
+
+            {/* Analyze button */}
+            <button onClick={() => analyzePhoto(selPhoto)} disabled={analyzing} className="gym-btn"
+              style={{ width: "100%", background: analyzing ? "#111" : "#e63c2f1a", border: `1px solid ${analyzing ? "#1a1a24" : "#e63c2f44"}`, borderRadius: 11, padding: "12px", fontWeight: 700, fontSize: 14, color: analyzing ? "#555" : "#e63c2f", marginBottom: 16, minHeight: 48 }}>
+              {analyzing ? <span className="pulse">🔍 {t.analyzingPhoto}</span> : `🔍 ${(selPhoto.analyses || []).length > 0 ? "Re-analyze" : t.tapAnalyze}`}
+            </button>
+
+            {/* Analysis history */}
+            {(selPhoto.analyses || []).length > 0 && (
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 10 }}>{t.aiAnalysis} · {selPhoto.analyses.length} {selPhoto.analyses.length === 1 ? "entry" : "entries"}</div>
+                {[...(selPhoto.analyses || [])].reverse().map((a, i) => (
+                  <div key={i} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                    <div style={{ fontSize: 10, color: "#555", marginBottom: 8 }}>{new Date(a.date).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+                    <div style={{ fontSize: 14, lineHeight: 1.75, color: "#ccc", whiteSpace: "pre-wrap" }}>{a.text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {selPhoto._error && <div style={{ color: "#e63c2f", fontSize: 14 }}>{selPhoto._error}</div>}
+          </div>
         </div>
       )}
     </div>
@@ -2011,6 +2452,7 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
+  const [showPlanAction, setShowPlanAction] = useState(false);
   const [remaining, setRemaining] = useState(() => { try { const v = localStorage.getItem("ai_remaining"); return v !== null ? parseInt(v) : null; } catch { return null; } });
   const messagesRef = useRef();
 
@@ -2088,9 +2530,12 @@ SESSION: Push Day
     setLoading(false);
   };
 
-  const acceptPlan = () => {
-    setSessions(pendingPlan);
+  const acceptPlan = () => setShowPlanAction(true);
+  const confirmPlan = (replace) => {
+    if (replace) setSessions(pendingPlan);
+    else setSessions(p => [...p, ...pendingPlan.map(s => ({ ...s, id: Date.now() + Math.random() }))]);
     setPendingPlan(null);
+    setShowPlanAction(false);
     setMessages(p => [...p, { role: "assistant", content: `✅ ${t.planLive} 💪` }]);
   };
 
@@ -2142,6 +2587,21 @@ SESSION: Push Day
         </button>
         </div>
       </div>
+      {showPlanAction && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 500, display: "flex", alignItems: "flex-end" }}>
+          <div style={{ background: "#0f0f1a", borderRadius: "18px 18px 0 0", padding: "24px 22px calc(24px + env(safe-area-inset-bottom, 0px))", width: "100%" }}>
+            <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 6 }}>📋 {t.aiSuggestPrompt}</div>
+            <div style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>{pendingPlan?.length} sessions suggested</div>
+            <button onClick={() => confirmPlan(false)} className="gym-btn" style={{ width: "100%", background: "#e63c2f1a", border: "1px solid #e63c2f44", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 15, color: "#e63c2f", minHeight: 52, marginBottom: 10 }}>
+              ➕ {t.addToPlan}
+            </button>
+            <button onClick={() => confirmPlan(true)} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 15, color: "#fff", minHeight: 52, marginBottom: 10 }}>
+              🔄 {t.replacePlan}
+            </button>
+            <button onClick={() => setShowPlanAction(false)} style={{ width: "100%", background: "none", border: "none", padding: "12px", color: "#444", fontSize: 14, fontWeight: 600 }}>{t.discard}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
