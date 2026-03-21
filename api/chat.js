@@ -121,7 +121,7 @@ export default async function handler(req, res) {
       },
     });
 
-    const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-preview-04-17";
+    const MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
     const geminiRes = await fetch(url, {
