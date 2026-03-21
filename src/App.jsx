@@ -2787,7 +2787,7 @@ SESSION: Push Day
 
         const fullResponse = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: planPrompt }].slice(-6),
-          `You are a personal AI fitness coach. You MUST only suggest exercises from the provided list. Use the exact exercise names. Always use the SESSION/pipe format.`, 4000
+          `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If the user asks about ANYTHING unrelated to fitness, health, or nutrition, respond with exactly: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals. What would you like to work on?" You MUST only suggest exercises from the provided list. Use the exact exercise names. Always use the SESSION/pipe format. Keep responses concise and practical.`, 2000
         );
 
         // Parse sessions from text
@@ -2801,7 +2801,7 @@ SESSION: Push Day
       } else {
         const reply = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
-          `You are a personal AI fitness coach. Context: ${ctx()}\nWhen suggesting exercises, only recommend from this list: ${AVAILABLE_EXERCISES}\nBe specific, encouraging, and reference their actual data when helpful. Give complete answers.`, 4000
+          `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If the user asks about ANYTHING unrelated to fitness, health, or nutrition, respond with exactly: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals. What would you like to work on?" Context: ${ctx()}\nWhen suggesting exercises, only recommend from this list: ${AVAILABLE_EXERCISES}\nBe specific, encouraging, and reference their actual data when helpful. Keep responses concise — no padding or filler.`, 2000
         );
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }

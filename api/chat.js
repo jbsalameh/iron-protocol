@@ -49,6 +49,16 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   if (!GEMINI_KEY) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
 
+  // ─── Input size guard ────────────────────────────────────────────────────
+  const bodyStr = JSON.stringify(req.body || {});
+  if (bodyStr.length > 20000) {
+    return res.status(413).json({ error: "Request too large. Please shorten your message." });
+  }
+  // Cap maxTokens to prevent runaway responses
+  if (req.body?.maxTokens && req.body.maxTokens > 2000) {
+    req.body.maxTokens = 2000;
+  }
+
   // ─── Rate limit check ───────────────────────────────────────────────
   const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.socket?.remoteAddress || "unknown";
   const limit = getRateLimit(ip);
