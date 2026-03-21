@@ -21,10 +21,18 @@ function getRateLimit(ip) {
 }
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS — locked to production origin only
+  const allowedOrigins = [
+    "https://iron-protocol-ruby.vercel.app",
+    "https://iron-protocol.vercel.app",
+  ];
+  const origin = req.headers.origin || "";
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Vary", "Origin");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const GEMINI_KEY = process.env.GEMINI_API_KEY;
@@ -103,7 +111,7 @@ export default async function handler(req, res) {
       },
     });
 
-    const MODEL = "gemini-3.1-flash-lite-preview";
+    const MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
     const geminiRes = await fetch(url, {
