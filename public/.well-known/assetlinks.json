@@ -1,12 +1,8 @@
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "app.vercel.iron_protocol_ruby",
-      "sha256_cert_fingerprints": [
-        "REPLACE_WITH_SHA256_FROM_PWABUILDER"
-      ]
-    }
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.iron_protocol_ruby",
+    "sha256_cert_fingerprints": ["2F:67:69:AF:E9:85:53:39:BD:3E:CA:A7:95:31:CB:78:3B:57:A8:35:37:73:51:30:CE:49:73:D7:60:F4:0A:2C"]
   }
-]
+}]
