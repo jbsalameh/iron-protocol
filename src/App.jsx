@@ -829,7 +829,6 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
     { id: "stats", label: t.stats, icon: "chart" },
     { id: "nutrition", label: t.nutrition, icon: "apple" },
     { id: "photos", label: t.progress, icon: "camera" },
-    { id: "myexercises", label: "Exercises", icon: "plus" },
     { id: "ai", label: t.aiCoach, icon: "brain" },
   ];
 
@@ -869,7 +868,6 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} t={t} />}
         {tab === "nutrition" && <NutritionTab nutritionLogs={nutritionLogs} setNutritionLogs={setNutritionLogs} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} t={t} />}
-        {tab === "myexercises" && <MyExercisesTab customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />}
         {tab === "ai" && <AICoachTab profile={profile} sessions={sessions} workoutLogs={workoutLogs} nutritionLogs={nutritionLogs} photos={photos} setSessions={setSessions} t={t} />}
       </div>
 
@@ -1513,6 +1511,33 @@ function RestTimer({ seconds, onDone, onSkip, t }) {
         <text x="50" y="56" textAnchor="middle" fill="#e8e4dc" fontSize="28" fontWeight="800" fontFamily="Syne">{remaining}</text>
       </svg>
       <button onClick={onSkip} style={{ marginTop: 28, background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 28px", color: "#888", fontWeight: 700, fontSize: 14 }}>{t.skipRest}</button>
+    </div>
+  );
+}
+
+function ExerciseTimer({ onComplete }) {
+  const [running, setRunning] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const intervalRef = useRef(null);
+
+  const start = () => { setRunning(true); setSeconds(0); };
+  const stop = () => { setRunning(false); clearInterval(intervalRef.current); onComplete(seconds); };
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running]);
+
+  if (!running) return (
+    <button onClick={start} style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 6, padding: "4px 8px", color: "#e63c2f", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>⏱ Start</button>
+  );
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span style={{ color: "#e63c2f", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums", minWidth: 28 }}>{seconds}s</span>
+      <button onClick={stop} style={{ background: "#e63c2f", border: "none", borderRadius: 6, padding: "4px 8px", color: "#fff", fontSize: 10, fontWeight: 700 }}>Stop</button>
     </div>
   );
 }
