@@ -630,8 +630,13 @@ function ExerciseDemo({ exercise, onClose, t: tt }) {
           </div>
         ) : (
           <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 16, padding: "28px 20px", marginBottom: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 44, marginBottom: 10 }}>🏋️</div>
-            <div style={{ color: "#555", fontSize: 14, fontWeight: 600 }}>{t.noImage}</div>
+            <div style={{ fontSize: 44, marginBottom: 10 }}>
+              {exercise.equipment === "machine" ? "🖥️" : exercise.muscles?.includes("core") ? "🔥" : exercise.equipment === "bodyweight" ? "💪" : "🏋️"}
+            </div>
+            <div style={{ color: "#777", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{t.noImage}</div>
+            <div style={{ color: "#444", fontSize: 11, lineHeight: 1.6 }}>
+              {exercise.equipment === "machine" ? "Demonstration images aren't available for this machine exercise." : "No image available for this exercise."}
+            </div>
           </div>
         )}
         <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 14, padding: 16, marginBottom: 14 }}>
@@ -824,6 +829,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
     { id: "stats", label: t.stats, icon: "chart" },
     { id: "nutrition", label: t.nutrition, icon: "apple" },
     { id: "photos", label: t.progress, icon: "camera" },
+    { id: "myexercises", label: "Exercises", icon: "plus" },
     { id: "ai", label: t.aiCoach, icon: "brain" },
   ];
 
@@ -863,6 +869,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} t={t} />}
         {tab === "nutrition" && <NutritionTab nutritionLogs={nutritionLogs} setNutritionLogs={setNutritionLogs} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} t={t} />}
+        {tab === "myexercises" && <MyExercisesTab customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />}
         {tab === "ai" && <AICoachTab profile={profile} sessions={sessions} workoutLogs={workoutLogs} nutritionLogs={nutritionLogs} photos={photos} setSessions={setSessions} t={t} />}
       </div>
 
@@ -1464,8 +1471,8 @@ const EX_FIELD_CONFIG = {
   "Kettlebell Swing":    { label: "Weight",   placeholder: "kg",      unit: "kg" },
   // New cardio exercises
   "Jump Rope":           { label: "Duration", placeholder: "secs",    unit: "s" },
-  "Skillrow":            { label: "Watts",    placeholder: "watts",   unit: "W" },
-  "Rowing Machine":      { label: "Watts",    placeholder: "watts",   unit: "W" },
+  "Skillrow":            { label: "Distance", placeholder: "m",      unit: "m",  unit2: "Time", placeholder2: "secs", isDual: true },
+  "Rowing Machine":      { label: "Distance", placeholder: "m",      unit: "m",  unit2: "Time", placeholder2: "secs", isDual: true },
   "Assault Bike":        { label: "Calories", placeholder: "cals",    unit: "cal" },
   "Sled Push":           { label: "Weight",   placeholder: "kg",      unit: "kg" },
   "Farmer's Walk":       { label: "Weight",   placeholder: "kg",      unit: "kg" },
@@ -2625,6 +2632,92 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
       <div style={{ height: 20 }} />
 
       {showAdd && <AddFoodModal onAdd={addFood} onClose={() => setShowAdd(false)} t={t} />}
+    </div>
+  );
+}
+
+function MyExercisesTab({ customExercises, setCustomExercises, t }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [showDemo, setShowDemo] = useState(null);
+
+  const muscleColors = {
+    chest: "#e63c2f", back: "#e63c2f", shoulders: "#f5a623", biceps: "#4ade80",
+    triceps: "#4ade80", quads: "#60a5fa", hamstrings: "#60a5fa", glutes: "#a78bfa",
+    calves: "#60a5fa", core: "#f5a623", abs: "#f5a623", other: "#555",
+  };
+
+  return (
+    <div style={{ padding: 18 }} className="slide-in">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800 }}>{t.customExercises}</div>
+          <div style={{ color: "#555", fontSize: 12, marginTop: 2 }}>
+            {customExercises.length} exercise{customExercises.length !== 1 ? "s" : ""} created
+          </div>
+        </div>
+        <button onClick={() => setShowCreate(true)} className="gym-btn"
+          style={{ background: "#e63c2f", border: "none", borderRadius: 11, padding: "10px 16px", color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, fontSize: 14, minHeight: 44 }}>
+          <Icon name="plus" size={15} /> {t.createExercise}
+        </button>
+      </div>
+
+      {/* Built-in exercise browser */}
+      <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 14, padding: "12px 14px", marginBottom: 18 }}>
+        <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>Built-in Library</div>
+        {Object.entries(EXERCISE_DB).map(([cat, exs]) => (
+          <div key={cat} style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, color: "#555", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>{cat}</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {exs.map(ex => (
+                <button key={ex.name} onClick={() => setShowDemo(ex)}
+                  style={{ background: "#0a0a0f", border: "1px solid #1a1a24", borderRadius: 8, padding: "5px 10px", color: "#bbb", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                  {IMAGE_MAP[ex.name] ? "📷" : "📋"} {ex.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Custom exercises */}
+      <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>My Custom Exercises</div>
+
+      {customExercises.length === 0 ? (
+        <div style={{ background: "#111", border: "1px dashed #252535", borderRadius: 14, padding: "36px 20px", textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>✏️</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{t.noCustomExercises}</div>
+          <div style={{ color: "#555", fontSize: 13 }}>Tap "+ {t.createExercise}" to add your own movements</div>
+        </div>
+      ) : (
+        customExercises.map(ex => (
+          <div key={ex.id} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "14px 16px", marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{ex.name}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+                  {ex.muscles?.map(m => (
+                    <span key={m} style={{ background: `${muscleColors[m] || "#555"}22`, border: `1px solid ${muscleColors[m] || "#555"}44`, borderRadius: 5, padding: "2px 8px", fontSize: 10, color: muscleColors[m] || "#888", fontWeight: 700, textTransform: "capitalize" }}>{m}</span>
+                  ))}
+                </div>
+                <span style={{ background: "#1a1a24", borderRadius: 5, padding: "2px 8px", fontSize: 10, color: "#555", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{ex.equipment}</span>
+              </div>
+              <button onClick={() => setCustomExercises(p => p.filter(e => e.id !== ex.id))}
+                style={{ background: "none", border: "none", color: "#333", padding: 6, marginLeft: 8 }}>
+                <Icon name="trash" size={16} />
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+
+      {showCreate && (
+        <CreateExerciseModal
+          onSave={ex => { setCustomExercises(p => [...p, ex]); setShowCreate(false); }}
+          onClose={() => setShowCreate(false)}
+          t={t}
+        />
+      )}
+      {showDemo && <ExerciseDemo exercise={showDemo} onClose={() => setShowDemo(null)} t={t} />}
     </div>
   );
 }
