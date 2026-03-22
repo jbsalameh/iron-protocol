@@ -2865,41 +2865,23 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
 
   const ctx = () => `Profile: ${JSON.stringify(profile)}\nSessions: ${JSON.stringify(sessions.map(s => ({ name: s.name, exercises: s.exercises?.map(e => e.name) })))}\nRecent workouts: ${JSON.stringify(workoutLogs.slice(-5).map(l => ({ date: l.date, session: l.sessionName })))}\nRecent nutrition: ${JSON.stringify(nutritionLogs.slice(-8).map(l => ({ name: l.name, protein: l.protein })))}`;
 
-  const isPlanRequest = txt => {
-    const l = txt.toLowerCase();
-    return l.includes("suggest") || l.includes("create") || l.includes("plan") ||
-      l.includes("program") || l.includes("routine") || l.includes("generate") ||
-      l.includes("make") || l.includes("design") || l.includes("build") ||
-      l.includes("schedule") || l.includes("workout for") || l.includes("training for") ||
-      l.includes("give me") || l.includes("show me") || l.includes("exercises for") ||
-      l.includes("what should i train") || l.includes("what to train") ||
-      l.includes("train today") || l.includes("i need a workout") || l.includes("i need a program") ||
-      l.includes("want to train") || l.includes("i have") || l.includes("train my") ||
-      l.includes("j'ai") || l.includes("je veux");
-  };
+  const UNIFIED_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals."
 
-  const PLAN_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals."
-
-CRITICAL: When generating a training plan you MUST use EXACTLY this format — no deviations:
+When the user requests exercises, a workout, a session, or a training program — respond using EXACTLY this format:
 
 SESSION: Push Day
 - Bench Press | barbell | chest, triceps, shoulders | 4x8-10 | 60kg
 - Overhead Press | barbell | shoulders, triceps | 3x10 | 40kg
-- Lateral Raises | dumbbell | side delts | 3x12 | 8kg
 
-SESSION: Pull Day
-- Pull-ups | bodyweight | lats, biceps | 4x6-10 | 0kg
-- Barbell Row | barbell | lats, rhomboids | 4x8 | 60kg
-
-Rules you MUST follow:
+Rules for workout responses:
 1. Use ONLY exercises from the available list (exact spelling)
 2. Every exercise line starts with "- " and uses " | " as separator
-3. Sets×reps format: "3x10" or "3x8-12"  
-4. Weight is always a number followed by "kg" (use 0kg for bodyweight)
-5. Write 1-2 sentences of intro, then the SESSION blocks — nothing after
-6. Do NOT add bullet explanations, footnotes, or any text between/after sessions`;
+3. Sets×reps: "3x10" or "3x8-12"
+4. Weight: number followed by "kg" (use 0kg for bodyweight)
+5. Write 1-2 sentences of intro, then SESSION blocks — nothing after
+6. Do NOT add bullet explanations, footnotes, or any text between/after sessions
 
-  const COACH_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals." Be specific, practical, and concise. Reference the user's actual data when helpful. No filler or padding.`;
+When the user asks a general question (technique, nutrition, recovery, advice): answer conversationally. Be specific, practical, and concise. No filler.`;
 
   const send = async (overrideInput) => {
     const text = overrideInput || input;
@@ -2909,75 +2891,31 @@ Rules you MUST follow:
     setInput("");
     setLoading(true);
     try {
-      if (isPlanRequest(text)) {
-        const planPrompt = `${text}
+      const prompt = `${text}
 
-User profile: ${JSON.stringify(profile)}
-Existing sessions: ${JSON.stringify(sessions.map(s => s.name))}
+${ctx()}
 
 AVAILABLE EXERCISES — use ONLY these, spelled exactly as written:
-${AVAILABLE_EXERCISES}
+${AVAILABLE_EXERCISES}`;
 
-Generate the training plan now using the SESSION format from your instructions. Start with 1-2 sentences, then the sessions.`;
+      const fullResponse = await callAI(
+        [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: prompt }].slice(-6),
+        UNIFIED_SYSTEM, 2000, 0.2
+      );
 
-        const fullResponse = await callAI(
-          [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: planPrompt }].slice(-6),
-          PLAN_SYSTEM, 2000, 0.1
-        );
+      const parsed = parsePlanFromText(fullResponse);
 
-        // Parse sessions from text
-        const parsed = parsePlanFromText(fullResponse);
-
-        if (parsed.length > 0) {
-          // Good parse — show response + plan preview
-          const key = Date.now();
-          setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: true, planKey: key }]);
-          setPendingPlan(parsed.map((s, i) => ({ ...s, id: key + i })));
-          setPlanKey(key);
-        } else {
-          // Parse failed — retry with a stricter JSON-first prompt
-          const retryPrompt = `Generate a structured training plan for: "${text}"
-
-User: ${JSON.stringify(profile)}
-
-AVAILABLE EXERCISES:
-${AVAILABLE_EXERCISES}
-
-You MUST output sessions using EXACTLY this format (nothing else after the sessions):
-
-SESSION: [Name]
-- [Exercise] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
-
-Output 1 sentence intro then the sessions now:`;
-
-          const retryResponse = await callAI(
-            [{ role: "user", content: retryPrompt }],
-            PLAN_SYSTEM, 2000, 0.1
-          );
-          const retryParsed = parsePlanFromText(retryResponse);
-
-          if (retryParsed.length > 0) {
-            const key = Date.now();
-            setMessages(p => [...p, { role: "assistant", content: retryResponse, hasPlan: true, planKey: key }]);
-            setPendingPlan(retryParsed.map((s, i) => ({ ...s, id: key + i })));
-            setPlanKey(key);
-          } else {
-            // Both parses failed — show response with a real retry button
-            setMessages(p => [...p, {
-              role: "assistant",
-              content: fullResponse,
-              hasPlan: false,
-              needsRetry: true,
-              retryText: text,
-            }]);
-          }
-        }
+      if (parsed.length > 0) {
+        const key = Date.now();
+        setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: true, planKey: key }]);
+        setPendingPlan(parsed.map((s, i) => ({ ...s, id: key + i })));
+        setPlanKey(key);
+      } else if (/SESSION:/i.test(fullResponse)) {
+        // AI attempted SESSION format but parsing failed — offer retry
+        setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: false, needsRetry: true, retryText: text }]);
       } else {
-        const reply = await callAI(
-          [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
-          `${COACH_SYSTEM}\nContext: ${ctx()}\nWhen suggesting exercises, only recommend from this list: ${AVAILABLE_EXERCISES}`, 2000
-        );
-        setMessages(p => [...p, { role: "assistant", content: reply }]);
+        // Conversational response
+        setMessages(p => [...p, { role: "assistant", content: fullResponse }]);
       }
     } catch (e) { setMessages(p => [...p, { role: "assistant", content: `${t.connectionError}\n\n${e.message || ""}` }]); }
     setLoading(false);
