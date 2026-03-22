@@ -603,7 +603,7 @@ function ExerciseDemo({ exercise, onClose, t: tt }) {
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 400, display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
-      <div style={{ paddingTop: "max(18px, env(safe-area-inset-top, 18px))", padding: "18px 20px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #1a1a24", flexShrink: 0 }}>
+      <div style={{ paddingTop: "max(18px, env(safe-area-inset-top, 18px))", paddingBottom: 14, paddingLeft: 20, paddingRight: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #1a1a24", flexShrink: 0, background: "#0a0a0f" }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>{exercise.name}</div>
           <div style={{ color: "#e63c2f", fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginTop: 4 }}>
@@ -614,7 +614,7 @@ function ExerciseDemo({ exercise, onClose, t: tt }) {
           <Icon name="close" size={20} />
         </button>
       </div>
-      <div style={{ flex: 1, overflow: "auto", padding: "16px 18px 32px" }}>
+      <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "16px 18px 32px" }}>
         {imgUrl && !imgFailed ? (
           <div style={{ marginBottom: 16 }}>
             <div style={{ borderRadius: 16, overflow: "hidden", background: "#111", border: "1px solid #1a1a24", position: "relative" }}>
@@ -1243,10 +1243,10 @@ function ExercisePickerModal({ mode, replaceIdx, customExercises, onAdd, onRepla
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 400, display: "flex", flexDirection: "column" }}>
-      <div style={{ flexShrink: 0, padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24" }}>
+      <div style={{ flexShrink: 0, paddingTop: "max(16px, env(safe-area-inset-top, 16px))", paddingBottom: 12, paddingLeft: 20, paddingRight: 20, borderBottom: "1px solid #1a1a24", background: "#0a0a0f" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div style={{ fontWeight: 800, fontSize: 17 }}>{mode === "replace" ? t.replaceExercise : t.addExerciseToLog}</div>
-          <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+          <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40, flexShrink: 0 }}><Icon name="close" /></button>
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search exercises..." autoFocus
           style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 48, outline: "none" }} />
@@ -1318,9 +1318,9 @@ function SessionEditor({ initial, onSave, onClose, customExercises, setCustomExe
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ flexShrink: 0, padding: "16px 20px", borderBottom: "1px solid #1a1a24", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ flexShrink: 0, paddingTop: "max(16px, env(safe-area-inset-top, 16px))", paddingBottom: 16, paddingLeft: 20, paddingRight: 20, borderBottom: "1px solid #1a1a24", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0a0a0f" }}>
         <div style={{ fontWeight: 800, fontSize: 19 }}>{initial ? t.editSession : t.newSessionTitle}</div>
-        <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
+        <button onClick={onClose} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40, flexShrink: 0 }}><Icon name="close" /></button>
       </div>
 
       <div style={{ flex: 1, overflow: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -1375,10 +1375,10 @@ function SessionEditor({ initial, onSave, onClose, customExercises, setCustomExe
       {/* Exercise picker — fullscreen with search */}
       {showPicker && (
         <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 300, display: "flex", flexDirection: "column" }}>
-          <div style={{ flexShrink: 0, padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24" }}>
+          <div style={{ flexShrink: 0, paddingTop: "max(16px, env(safe-area-inset-top, 16px))", paddingBottom: 12, paddingLeft: 20, paddingRight: 20, borderBottom: "1px solid #1a1a24", background: "#0a0a0f" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontWeight: 800, fontSize: 17 }}>{t.addExerciseTitle}</div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                 <button onClick={() => setShowCreateEx(true)} className="gym-btn" style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 8, padding: "8px 12px", color: "#e63c2f", fontSize: 12, fontWeight: 700, minHeight: 36 }}>+ {t.createExercise}</button>
                 <button onClick={() => { setShowPicker(false); setSearch(""); }} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: 10, color: "#888", minWidth: 40, minHeight: 40 }}><Icon name="close" /></button>
               </div>
@@ -2864,7 +2864,36 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
 
   const ctx = () => `Profile: ${JSON.stringify(profile)}\nSessions: ${JSON.stringify(sessions.map(s => ({ name: s.name, exercises: s.exercises?.map(e => e.name) })))}\nRecent workouts: ${JSON.stringify(workoutLogs.slice(-5).map(l => ({ date: l.date, session: l.sessionName })))}\nRecent nutrition: ${JSON.stringify(nutritionLogs.slice(-8).map(l => ({ name: l.name, protein: l.protein })))}`;
 
-  const isPlanRequest = t => { const l = t.toLowerCase(); return l.includes("suggest") || l.includes("create") || l.includes("plan") || l.includes("program") || l.includes("routine") || l.includes("generate") || l.includes("make") || l.includes("design") || l.includes("build"); };
+  const isPlanRequest = txt => {
+    const l = txt.toLowerCase();
+    return l.includes("suggest") || l.includes("create") || l.includes("plan") ||
+      l.includes("program") || l.includes("routine") || l.includes("generate") ||
+      l.includes("make") || l.includes("design") || l.includes("build") ||
+      l.includes("schedule") || l.includes("workout for") || l.includes("training for");
+  };
+
+  const PLAN_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals."
+
+CRITICAL: When generating a training plan you MUST use EXACTLY this format — no deviations:
+
+SESSION: Push Day
+- Bench Press | barbell | chest, triceps, shoulders | 4x8-10 | 60kg
+- Overhead Press | barbell | shoulders, triceps | 3x10 | 40kg
+- Lateral Raises | dumbbell | side delts | 3x12 | 8kg
+
+SESSION: Pull Day
+- Pull-ups | bodyweight | lats, biceps | 4x6-10 | 0kg
+- Barbell Row | barbell | lats, rhomboids | 4x8 | 60kg
+
+Rules you MUST follow:
+1. Use ONLY exercises from the available list (exact spelling)
+2. Every exercise line starts with "- " and uses " | " as separator
+3. Sets×reps format: "3x10" or "3x8-12"  
+4. Weight is always a number followed by "kg" (use 0kg for bodyweight)
+5. Write 1-2 sentences of intro, then the SESSION blocks — nothing after
+6. Do NOT add bullet explanations, footnotes, or any text between/after sessions`;
+
+  const COACH_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals." Be specific, practical, and concise. Reference the user's actual data when helpful. No filler or padding.`;
 
   const send = async (overrideInput) => {
     const text = overrideInput || input;
@@ -2877,49 +2906,64 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
       if (isPlanRequest(text)) {
         const planPrompt = `${text}
 
-User context: ${ctx()}
+User profile: ${JSON.stringify(profile)}
+Existing sessions: ${JSON.stringify(sessions.map(s => s.name))}
 
-AVAILABLE EXERCISES (you MUST only use exercises from this list, use the exact names):
+AVAILABLE EXERCISES — use ONLY these, spelled exactly as written:
 ${AVAILABLE_EXERCISES}
 
-Write a training plan using ONLY exercises from the list above. Use this EXACT format for each session:
-
-SESSION: [session name]
-- [exercise name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
-- [exercise name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
-
-SESSION: [next session name]
-- [exercise name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
-
-Rules:
-- ONLY use exercise names from the list above, spelled exactly as shown
-- equipment and muscles are already defined in the list, copy them
-- weight is in kg (use 0 for bodyweight exercises)
-- Start with a 2-3 sentence explanation, then list the sessions
-
-Example:
-SESSION: Push Day
-- Bench Press | barbell | chest, triceps, shoulders | 4x8-10 | 60kg
-- Overhead Press | barbell | shoulders, triceps | 3x10 | 40kg
-- Lateral Raises | dumbbell | side delts | 3x12 | 8kg`;
+Generate the training plan now using the SESSION format from your instructions. Start with 1-2 sentences, then the sessions.`;
 
         const fullResponse = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: planPrompt }].slice(-6),
-          `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If the user asks about ANYTHING unrelated to fitness, health, or nutrition, respond with exactly: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals. What would you like to work on?" You MUST only suggest exercises from the provided list. Use the exact exercise names. Always use the SESSION/pipe format. Keep responses concise and practical.`, 2000
+          PLAN_SYSTEM, 2000
         );
 
         // Parse sessions from text
         const parsed = parsePlanFromText(fullResponse);
 
-        setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: parsed.length > 0 }]);
-
         if (parsed.length > 0) {
+          // Good parse — show response + plan preview
+          setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: true }]);
           setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+        } else {
+          // Parse failed — retry with a stricter JSON-first prompt
+          const retryPrompt = `Generate a structured training plan for: "${text}"
+
+User: ${JSON.stringify(profile)}
+
+AVAILABLE EXERCISES:
+${AVAILABLE_EXERCISES}
+
+You MUST output sessions using EXACTLY this format (nothing else after the sessions):
+
+SESSION: [Name]
+- [Exercise] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg
+
+Output 1 sentence intro then the sessions now:`;
+
+          const retryResponse = await callAI(
+            [{ role: "user", content: retryPrompt }],
+            PLAN_SYSTEM, 2000
+          );
+          const retryParsed = parsePlanFromText(retryResponse);
+
+          if (retryParsed.length > 0) {
+            setMessages(p => [...p, { role: "assistant", content: retryResponse, hasPlan: true }]);
+            setPendingPlan(retryParsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+          } else {
+            // Show the response as-is with a note
+            setMessages(p => [...p, {
+              role: "assistant",
+              content: fullResponse + "\n\n_(Tap below to retry as a structured plan if you'd like to accept it into your training)_",
+              hasPlan: false,
+            }]);
+          }
         }
       } else {
         const reply = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), userMsg].slice(-6),
-          `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If the user asks about ANYTHING unrelated to fitness, health, or nutrition, respond with exactly: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals. What would you like to work on?" Context: ${ctx()}\nWhen suggesting exercises, only recommend from this list: ${AVAILABLE_EXERCISES}\nBe specific, encouraging, and reference their actual data when helpful. Keep responses concise — no padding or filler.`, 2000
+          `${COACH_SYSTEM}\nContext: ${ctx()}\nWhen suggesting exercises, only recommend from this list: ${AVAILABLE_EXERCISES}`, 2000
         );
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }
