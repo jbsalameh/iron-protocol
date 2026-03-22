@@ -2952,11 +2952,13 @@ Output 1 sentence intro then the sessions now:`;
             setMessages(p => [...p, { role: "assistant", content: retryResponse, hasPlan: true }]);
             setPendingPlan(retryParsed.map((s, i) => ({ ...s, id: Date.now() + i })));
           } else {
-            // Show the response as-is with a note
+            // Both parses failed — show response with a real retry button
             setMessages(p => [...p, {
               role: "assistant",
-              content: fullResponse + "\n\n_(Tap below to retry as a structured plan if you'd like to accept it into your training)_",
+              content: fullResponse,
               hasPlan: false,
+              needsRetry: true,
+              retryText: text,
             }]);
           }
         }
@@ -2968,6 +2970,36 @@ Output 1 sentence intro then the sessions now:`;
         setMessages(p => [...p, { role: "assistant", content: reply }]);
       }
     } catch (e) { setMessages(p => [...p, { role: "assistant", content: `${t.connectionError}\n\n${e.message || ""}` }]); }
+    setLoading(false);
+  };
+
+  const retryAsPlan = async (originalText, msgIndex) => {
+    setLoading(true);
+    const ultraRetryPrompt = `Training plan request: "${originalText}"
+User: ${JSON.stringify(profile)}
+AVAILABLE EXERCISES — use ONLY these, exact spelling:
+${AVAILABLE_EXERCISES}
+
+OUTPUT ONLY the SESSION blocks below. No prose before or after. No markdown. No notes.
+
+SESSION: [Session Name]
+- [Exercise Name] | [equipment] | [muscles] | [sets]x[reps] | [weight]kg`;
+    try {
+      const response = await callAI(
+        [{ role: "user", content: ultraRetryPrompt }],
+        "You output ONLY training session blocks in SESSION: format. Nothing else — no intro, no notes, no markdown outside the format.",
+        2000
+      );
+      const parsed = parsePlanFromText(response);
+      if (parsed.length > 0) {
+        setMessages(p => p.map((m, i) => i === msgIndex ? { ...m, content: response, hasPlan: true, needsRetry: false } : m));
+        setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+      } else {
+        setMessages(p => p.map((m, i) => i === msgIndex ? { ...m, needsRetry: false } : m));
+      }
+    } catch (e) {
+      setMessages(p => p.map((m, i) => i === msgIndex ? { ...m, needsRetry: false } : m));
+    }
     setLoading(false);
   };
 
@@ -2995,6 +3027,14 @@ Output 1 sentence intro then the sessions now:`;
             {m.hasPlan && pendingPlan && i === messages.length - 1 && (
               <div style={{ marginTop: 10 }}>
                 <PlanPreview plan={pendingPlan} setPlan={setPendingPlan} onAccept={acceptPlan} onDiscard={() => setPendingPlan(null)} t={t} />
+              </div>
+            )}
+            {m.needsRetry && !loading && (
+              <div style={{ marginTop: 6, display: "flex" }}>
+                <button onClick={() => retryAsPlan(m.retryText, i)} className="gym-btn"
+                  style={{ background: "#e63c2f1a", border: "1px solid #e63c2f44", borderRadius: 10, padding: "8px 14px", color: "#e63c2f", fontSize: 13, fontWeight: 700, minHeight: 36 }}>
+                  ↺ Retry as structured plan
+                </button>
               </div>
             )}
           </div>
