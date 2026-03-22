@@ -393,11 +393,11 @@ const COMMON_FOODS = [
   { name: "Protein Bar",           protein: 20, calories: 220, carbs: 25,   fat: 7   },
 ];
 
-async function callAI(messages, systemPrompt, maxTokens = 4000) {
+async function callAI(messages, systemPrompt, maxTokens = 4000, temperature) {
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, system: systemPrompt, maxTokens }),
+    body: JSON.stringify({ messages, system: systemPrompt, maxTokens, temperature }),
   });
   const data = await response.json();
   // Store remaining requests for UI display
@@ -2916,7 +2916,7 @@ Generate the training plan now using the SESSION format from your instructions. 
 
         const fullResponse = await callAI(
           [...messages.map(m => ({ role: m.role, content: m.content })), { role: "user", content: planPrompt }].slice(-6),
-          PLAN_SYSTEM, 2000
+          PLAN_SYSTEM, 2000, 0.1
         );
 
         // Parse sessions from text
@@ -2944,7 +2944,7 @@ Output 1 sentence intro then the sessions now:`;
 
           const retryResponse = await callAI(
             [{ role: "user", content: retryPrompt }],
-            PLAN_SYSTEM, 2000
+            PLAN_SYSTEM, 2000, 0.1
           );
           const retryParsed = parsePlanFromText(retryResponse);
 
@@ -2988,7 +2988,7 @@ SESSION: [Session Name]
       const response = await callAI(
         [{ role: "user", content: ultraRetryPrompt }],
         "You output ONLY training session blocks in SESSION: format. Nothing else — no intro, no notes, no markdown outside the format.",
-        2000
+        2000, 0.1
       );
       const parsed = parsePlanFromText(response);
       if (parsed.length > 0) {

@@ -73,7 +73,7 @@ export default async function handler(req, res) {
   res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
-    const { messages, system, maxTokens, image, mediaType, prompt } = req.body;
+    const { messages, system, maxTokens, temperature, image, mediaType, prompt } = req.body;
 
     let contents = [];
 
@@ -117,7 +117,7 @@ export default async function handler(req, res) {
       systemInstruction: system ? { parts: [{ text: system }] } : undefined,
       generationConfig: {
         maxOutputTokens: maxTokens || 4000,
-        temperature: 0.7,
+        temperature: temperature !== undefined ? temperature : 0.7,
       },
     });
 
