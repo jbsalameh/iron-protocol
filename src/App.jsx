@@ -2873,7 +2873,9 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
       l.includes("schedule") || l.includes("workout for") || l.includes("training for") ||
       l.includes("give me") || l.includes("show me") || l.includes("exercises for") ||
       l.includes("what should i train") || l.includes("what to train") ||
-      l.includes("train today") || l.includes("i need a workout") || l.includes("i need a program");
+      l.includes("train today") || l.includes("i need a workout") || l.includes("i need a program") ||
+      l.includes("want to train") || l.includes("i have") || l.includes("train my") ||
+      l.includes("j'ai") || l.includes("je veux");
   };
 
   const PLAN_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals."
