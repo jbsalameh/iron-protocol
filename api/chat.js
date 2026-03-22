@@ -27,9 +27,10 @@ export default async function handler(req, res) {
     "https://iron-protocol.vercel.app",
   ];
   const origin = req.headers.origin || "";
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (!allowedOrigins.includes(origin)) {
+    return res.status(403).json({ error: "Forbidden" });
   }
+  res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Vary", "Origin");
