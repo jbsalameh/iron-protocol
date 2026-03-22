@@ -785,7 +785,7 @@ Return ONLY a JSON array:
 
 Be conservative with weight increases (2.5-5kg). Return empty array [] if no upgrades needed.`;
 
-      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation, no text outside the array.", 4000);
+      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation, no text outside the array.", 4000, 0.1);
       const parsed = extractJSON(response);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -2079,7 +2079,7 @@ Return ONLY a JSON array like:
 
 Be conservative — only suggest weight increases of 2.5-5kg, only when there are 3+ sessions showing consistent performance at current weight. Return empty array [] if no clear upgrades are warranted yet.`;
 
-      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation.", 4000);
+      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation.", 4000, 0.1);
       const parsed = extractJSON(response);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -2849,6 +2849,7 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
+  const [planKey, setPlanKey] = useState(null);
   const [showPlanAction, setShowPlanAction] = useState(false);
   const [remaining, setRemaining] = useState(() => { try { const v = localStorage.getItem("ai_remaining"); return v !== null ? parseInt(v) : null; } catch { return null; } });
   const messagesRef = useRef();
@@ -2869,7 +2870,10 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     return l.includes("suggest") || l.includes("create") || l.includes("plan") ||
       l.includes("program") || l.includes("routine") || l.includes("generate") ||
       l.includes("make") || l.includes("design") || l.includes("build") ||
-      l.includes("schedule") || l.includes("workout for") || l.includes("training for");
+      l.includes("schedule") || l.includes("workout for") || l.includes("training for") ||
+      l.includes("give me") || l.includes("show me") || l.includes("exercises for") ||
+      l.includes("what should i train") || l.includes("what to train") ||
+      l.includes("train today") || l.includes("i need a workout") || l.includes("i need a program");
   };
 
   const PLAN_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals."
@@ -2924,8 +2928,10 @@ Generate the training plan now using the SESSION format from your instructions. 
 
         if (parsed.length > 0) {
           // Good parse — show response + plan preview
-          setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: true }]);
-          setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+          const key = Date.now();
+          setMessages(p => [...p, { role: "assistant", content: fullResponse, hasPlan: true, planKey: key }]);
+          setPendingPlan(parsed.map((s, i) => ({ ...s, id: key + i })));
+          setPlanKey(key);
         } else {
           // Parse failed — retry with a stricter JSON-first prompt
           const retryPrompt = `Generate a structured training plan for: "${text}"
@@ -2949,8 +2955,10 @@ Output 1 sentence intro then the sessions now:`;
           const retryParsed = parsePlanFromText(retryResponse);
 
           if (retryParsed.length > 0) {
-            setMessages(p => [...p, { role: "assistant", content: retryResponse, hasPlan: true }]);
-            setPendingPlan(retryParsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+            const key = Date.now();
+            setMessages(p => [...p, { role: "assistant", content: retryResponse, hasPlan: true, planKey: key }]);
+            setPendingPlan(retryParsed.map((s, i) => ({ ...s, id: key + i })));
+            setPlanKey(key);
           } else {
             // Both parses failed — show response with a real retry button
             setMessages(p => [...p, {
@@ -2992,8 +3000,10 @@ SESSION: [Session Name]
       );
       const parsed = parsePlanFromText(response);
       if (parsed.length > 0) {
-        setMessages(p => p.map((m, i) => i === msgIndex ? { ...m, content: response, hasPlan: true, needsRetry: false } : m));
-        setPendingPlan(parsed.map((s, i) => ({ ...s, id: Date.now() + i })));
+        const key = Date.now();
+        setMessages(p => p.map((m, i) => i === msgIndex ? { ...m, content: response, hasPlan: true, needsRetry: false, planKey: key } : m));
+        setPendingPlan(parsed.map((s, i) => ({ ...s, id: key + i })));
+        setPlanKey(key);
       } else {
         setMessages(p => p.map((m, i) => i === msgIndex ? { ...m, needsRetry: false } : m));
       }
@@ -3008,6 +3018,7 @@ SESSION: [Session Name]
     if (replace) setSessions(pendingPlan);
     else setSessions(p => [...p, ...pendingPlan.map(s => ({ ...s, id: Date.now() + Math.random() }))]);
     setPendingPlan(null);
+    setPlanKey(null);
     setShowPlanAction(false);
     setMessages(p => [...p, { role: "assistant", content: `✅ ${t.planLive} 💪` }]);
   };
@@ -3024,9 +3035,9 @@ SESSION: [Session Name]
                 {m.content}
               </div>
             </div>
-            {m.hasPlan && pendingPlan && i === messages.length - 1 && (
+            {m.hasPlan && pendingPlan && m.planKey === planKey && (
               <div style={{ marginTop: 10 }}>
-                <PlanPreview plan={pendingPlan} setPlan={setPendingPlan} onAccept={acceptPlan} onDiscard={() => setPendingPlan(null)} t={t} />
+                <PlanPreview plan={pendingPlan} setPlan={setPendingPlan} onAccept={acceptPlan} onDiscard={() => { setPendingPlan(null); setPlanKey(null); }} t={t} />
               </div>
             )}
             {m.needsRetry && !loading && (
