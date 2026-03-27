@@ -97,6 +97,10 @@ const T = {
     replaceExercise: "Replace",
     photoAnalysis: "Analysis", noAnalysisYet: "Tap to analyze with AI",
     restSeconds: "Rest (sec)",
+    copySession: "Duplicate", hyroxTemplate: "Hyrox Sim",
+    filterAll: "All Time", filterWeek: "This Week", filterMonth: "This Month",
+    undoDelete: "Undo", pace: "Pace", carbsG: "Carbs (g)", fatG: "Fat (g)",
+    prompt5: "Build me a Hyrox competition prep plan",
   },
   fr: {
     training: "Entraînement", log: "Journal", stats: "Stats", nutrition: "Nutrition", progress: "Progrès", aiCoach: "Coach IA",
@@ -180,6 +184,10 @@ const T = {
     replaceExercise: "Remplacer",
     photoAnalysis: "Analyse", noAnalysisYet: "Appuyer pour analyser",
     restSeconds: "Repos (sec)",
+    copySession: "Dupliquer", hyroxTemplate: "Sim Hyrox",
+    filterAll: "Tout", filterWeek: "Semaine", filterMonth: "Ce mois",
+    undoDelete: "Annuler", pace: "Allure", carbsG: "Glucides (g)", fatG: "Lipides (g)",
+    prompt5: "Crée un programme de préparation Hyrox",
   },
 };
 
@@ -1076,9 +1084,34 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExerci
           <div style={{ fontSize: 20, fontWeight: 800 }}>{t.trainingSessions}</div>
           <div style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{profile.daysPerWeek}×/{t.gymDays?.split("/")[0] || "week"} · {profile.minutesPerSession} min</div>
         </div>
-        <button onClick={() => setShowCreate(true)} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 11, padding: "10px 16px", color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, fontSize: 14, minHeight: 44 }}>
-          <Icon name="plus" size={15} /> {t.newSession}
-        </button>
+        <div style={{ display: "flex", gap: 7 }}>
+          <button onClick={() => {
+            const hyroxExercises = [
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "SkiErg",            muscles: ["back","shoulders","core","triceps"], equipment: "machine", sets: 1, reps: "1000", weight: "0" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Sled Push",         muscles: ["quads","glutes","core"], equipment: "bodyweight", sets: 1, reps: "50", weight: "152" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Sled Pull",         muscles: ["back","glutes","hamstrings","core"], equipment: "bodyweight", sets: 1, reps: "50", weight: "103" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Burpee Broad Jumps",muscles: ["quads","chest","shoulders","core"], equipment: "bodyweight", sets: 1, reps: "80", weight: "0" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Rowing Machine",    muscles: ["back","legs","core"], equipment: "machine", sets: 1, reps: "1000", weight: "0" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Farmer's Walk",     muscles: ["forearms","traps","core"], equipment: "dumbbell", sets: 1, reps: "200", weight: "24" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Sandbag Lunges",    muscles: ["quads","glutes","core"], equipment: "bodyweight", sets: 1, reps: "100", weight: "20" },
+              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
+              { name: "Wall Balls",        muscles: ["quads","glutes","shoulders","core"], equipment: "bodyweight", sets: 1, reps: "100", weight: "9" },
+            ];
+            setSessions(p => [...p, { id: Date.now(), name: "Hyrox Race Simulation", exercises: hyroxExercises }]);
+          }} className="gym-btn" style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 11, padding: "10px 13px", color: "#888", fontWeight: 700, fontSize: 13, minHeight: 44 }}>
+            🏁 {t.hyroxTemplate}
+          </button>
+          <button onClick={() => setShowCreate(true)} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 11, padding: "10px 16px", color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, fontSize: 14, minHeight: 44 }}>
+            <Icon name="plus" size={15} /> {t.newSession}
+          </button>
+        </div>
       </div>
 
       {sessions.length === 0 ? (
@@ -1103,6 +1136,7 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExerci
                   {lastLog && <div style={{ color: "#444", fontSize: 11, marginTop: 2 }}>{t.lastLog}: {new Date(lastLog.date).toLocaleDateString()}</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={() => setSessions(s => [...s, { ...session, id: Date.now(), name: `${session.name} (copy)` }])} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "5px 9px", color: "#555", fontSize: 12 }}>{t.copySession}</button>
                   <button onClick={() => setEditSession({ ...session, idx })} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "5px 9px", color: "#888", fontSize: 12 }}>{t.edit}</button>
                   <button onClick={() => setSessions(s => s.filter((_, i) => i !== idx))} style={{ background: "none", border: "1px solid #252535", borderRadius: 7, padding: "5px 7px", color: "#444" }}><Icon name="trash" size={13} /></button>
                 </div>
@@ -1508,31 +1542,31 @@ function getExFieldConfig(ex) {
   return { label: "Weight", placeholder: "kg", unit: "kg" };
 }
 
-function RestTimer({ seconds, onDone, onSkip, t }) {
+function RestBanner({ seconds, onDone, onSkip, t }) {
   const [remaining, setRemaining] = useState(seconds);
-  const intervalRef = useRef(null);
   useEffect(() => {
-    intervalRef.current = setInterval(() => {
+    const id = setInterval(() => {
       setRemaining(r => {
-        if (r <= 1) { clearInterval(intervalRef.current); onDone(); return 0; }
+        if (r <= 1) {
+          clearInterval(id);
+          if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([100, 60, 100]);
+          onDone();
+          return 0;
+        }
         return r - 1;
       });
     }, 1000);
-    return () => clearInterval(intervalRef.current);
+    return () => clearInterval(id);
   }, []);
   const pct = remaining / seconds;
-  const r = 42, circ = 2 * Math.PI * r;
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 350, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontSize: 12, color: "#e63c2f", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 20 }}>{t.restTimer}</div>
-      <svg width="120" height="120" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="#1a1a24" strokeWidth="8"/>
-        <circle cx="50" cy="50" r={r} fill="none" stroke="#e63c2f" strokeWidth="8"
-          strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)}
-          strokeLinecap="round" transform="rotate(-90 50 50)" style={{ transition: "stroke-dashoffset 0.9s linear" }}/>
-        <text x="50" y="56" textAnchor="middle" fill="#e8e4dc" fontSize="28" fontWeight="800" fontFamily="Syne">{remaining}</text>
-      </svg>
-      <button onClick={onSkip} style={{ marginTop: 28, background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 10, padding: "12px 28px", color: "#888", fontWeight: 700, fontSize: 14 }}>{t.skipRest}</button>
+    <div style={{ background: "#111", border: "1px solid #e63c2f33", borderRadius: 10, padding: "9px 13px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ fontSize: 9, color: "#e63c2f", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", flexShrink: 0 }}>{t.restTimer}</div>
+      <div style={{ flex: 1, height: 4, background: "#1a1a24", borderRadius: 2, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct * 100}%`, background: "#e63c2f", borderRadius: 2, transition: "width 0.9s linear" }} />
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 800, color: "#e8e4dc", fontVariantNumeric: "tabular-nums", flexShrink: 0, minWidth: 34, textAlign: "right" }}>{remaining}s</div>
+      <button onClick={onSkip} style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 6, padding: "5px 11px", color: "#555", fontWeight: 700, fontSize: 11, flexShrink: 0, minHeight: 30 }}>✕</button>
     </div>
   );
 }
@@ -1576,6 +1610,8 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   const [elapsed, setElapsed] = useState(0);
   const [restTimer, setRestTimer] = useState(null); // { seconds }
   const [restLog, setRestLog] = useState([]); // completed rest durations
+  const [showRpeFor, setShowRpeFor] = useState({}); // { [ei]: bool }
+  const [rpeData, setRpeData] = useState({});       // { [ei]: { [si]: 1-10 } }
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [savedLog, setSavedLog] = useState(null);
@@ -1759,6 +1795,13 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
         )}
       </div>
 
+      {/* Inline rest banner — non-blocking, sits below header when active */}
+      {restTimer && started && (
+        <RestBanner seconds={restTimer.seconds} t={t}
+          onDone={() => { setRestLog(r => [...r, restTimer.seconds]); setRestTimer(null); }}
+          onSkip={() => { setRestLog(r => [...r, 0]); setRestTimer(null); }} />
+      )}
+
       {/* Start button */}
       {!started && (
         <button onClick={() => { setStarted(true); setStartTime(Date.now()); }} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -1784,26 +1827,46 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
                 </div>
               </div>
               <div style={{ display: "flex", gap: 5 }}>
+                <button onClick={() => setShowRpeFor(p => ({ ...p, [ei]: !p[ei] }))}
+                  style={{ background: showRpeFor[ei] ? "#e63c2f1a" : "#1a1a24", border: `1px solid ${showRpeFor[ei] ? "#e63c2f44" : "#252535"}`, borderRadius: 7, padding: "4px 9px", color: showRpeFor[ei] ? "#e63c2f" : "#555", fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>RPE</button>
                 <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "4px 9px", color: "#e63c2f", fontSize: 11, fontWeight: 700 }}><Icon name="info" size={11} /></button>
                 <button onClick={() => setShowAddExercise({ mode: "replace", idx: ei })} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "4px 9px", color: "#888", fontSize: 11, fontWeight: 700 }}><Icon name="swap" size={11} /></button>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, marginTop: 8 }}>
-              {["#", fieldCfg.label, isDuration ? "Rounds" : t.reps || "Reps", "✓"].map(h => (
+              {["#", fieldCfg.label, fieldCfg.isDual ? (fieldCfg.unit2 || "secs") : isDuration ? "Rounds" : t.reps || "Reps", "✓"].map(h => (
                 <div key={h} style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1 }}>{h}</div>
               ))}
             </div>
             {sets.map((set, si) => (
-              <div key={si} style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                <div style={{ color: "#444", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
-                <input value={set.weight} onChange={e => handleWeightChange(ei, si, e.target.value)} placeholder={fieldCfg.placeholder} inputMode="decimal"
-                  style={{ background: "#0a0a0f", border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`, borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
-                <input value={set.reps} onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))} placeholder={ex.reps || (isDuration ? "rounds" : "reps")} inputMode="numeric"
-                  style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
-                <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
-                  style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
-                  <Icon name="check" size={18} />
-                </button>
+              <div key={si}>
+                <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: showRpeFor[ei] ? 4 : 6, alignItems: "center" }}>
+                  <div style={{ color: "#444", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
+                  <input value={set.weight} onChange={e => handleWeightChange(ei, si, e.target.value)} placeholder={fieldCfg.placeholder} inputMode="decimal"
+                    style={{ background: "#0a0a0f", border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`, borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
+                  <input value={set.reps} onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))} placeholder={fieldCfg.isDual ? (fieldCfg.placeholder2 || "secs") : ex.reps || (isDuration ? "rounds" : "reps")} inputMode="numeric"
+                    style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
+                  <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
+                    style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
+                    <Icon name="check" size={18} />
+                  </button>
+                </div>
+                {showRpeFor[ei] && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6, paddingLeft: 34 }}>
+                    <span style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>{t.showRpe || "RPE"}</span>
+                    {[6, 7, 8, 9, 10].map(v => {
+                      const sel = rpeData[ei]?.[si] === v;
+                      const colors = { 6: "#4ade80", 7: "#a3e635", 8: "#f5a623", 9: "#f97316", 10: "#e63c2f" };
+                      return (
+                        <button key={v} onClick={() => setRpeData(d => ({ ...d, [ei]: { ...(d[ei] || {}), [si]: sel ? undefined : v } }))}
+                          style={{ background: sel ? `${colors[v]}22` : "#1a1a24", border: `1px solid ${sel ? colors[v] : "#2a2a3a"}`, borderRadius: 5, width: 30, height: 26, fontSize: 11, color: sel ? colors[v] : "#555", fontWeight: 800, flexShrink: 0 }}>
+                          {v}
+                        </button>
+                      );
+                    })}
+                    {rpeData[ei]?.[si] && <span style={{ fontSize: 10, color: "#888", marginLeft: 2 }}>{["Easy","Mod","Hard","V.Hard","Max"][rpeData[ei][si]-6]}</span>}
+                  </div>
+                )}
               </div>
             ))}
             {sets.length > 1 && sets[0].weight && !sets.every(s => s.weight === sets[0].weight) && (
@@ -1827,11 +1890,6 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
       <button onClick={saveLog} disabled={!started} className="gym-btn" style={{ width: "100%", background: started ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: started ? 1 : 0.5 }}>💪 {t.completeSession}</button>
       <div style={{ height: 20 }} />
 
-      {restTimer && (
-        <RestTimer seconds={restTimer.seconds} t={t}
-          onDone={() => { setRestLog(r => [...r, restTimer.seconds]); setRestTimer(null); }}
-          onSkip={() => { setRestLog(r => [...r, restTimer.seconds - (restTimer.seconds)]); setRestTimer(null); }} />
-      )}
       {showAddExercise && (
         <ExercisePickerModal
           mode={showAddExercise.mode}
@@ -1858,6 +1916,8 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
   const [editingLog, setEditingLog] = useState(false);
   const [editLogData, setEditLogData] = useState(null);
   const [showAddToLog, setShowAddToLog] = useState(false);
+  const [logFilter, setLogFilter] = useState("all");
+  const [pendingLogDelete, setPendingLogDelete] = useState(null);
 
   const total = workoutLogs.length;
   const week = workoutLogs.filter(l => new Date(l.date) > new Date(Date.now() - 7 * 864e5)).length;
@@ -1872,7 +1932,21 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
     });
   });
   const exNames = Object.keys(exProgress).filter(k => exProgress[k].length > 1);
-  const deleteLog = id => { setWorkoutLogs(p => p.filter(l => l.id !== id)); if (selectedLog?.id === id) setSelectedLog(null); };
+  const deleteLog = id => {
+    const item = workoutLogs.find(l => l.id === id);
+    if (!item) return;
+    setWorkoutLogs(p => p.filter(l => l.id !== id));
+    if (selectedLog?.id === id) setSelectedLog(null);
+    if (pendingLogDelete?.timer) clearTimeout(pendingLogDelete.timer);
+    const timer = setTimeout(() => setPendingLogDelete(null), 4000);
+    setPendingLogDelete({ item, timer });
+  };
+  const undoDeleteLog = () => {
+    if (!pendingLogDelete) return;
+    clearTimeout(pendingLogDelete.timer);
+    setWorkoutLogs(p => [...p, pendingLogDelete.item].sort((a, b) => new Date(a.date) - new Date(b.date)));
+    setPendingLogDelete(null);
+  };
 
   const startEditLog = (log) => {
     const d = {};
@@ -2025,19 +2099,27 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
 
               {/* Sets table */}
               <div style={{ background: "#0a0a0f", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr 40px", gap: 0, padding: "8px 10px", borderBottom: "1px solid #1a1a24" }}>
-                  {["#", fieldCfg.label, t.reps, "✓"].map(h => (
+                <div style={{ display: "grid", gridTemplateColumns: fieldCfg.isDual ? "36px 1fr 1fr 60px 40px" : "36px 1fr 1fr 40px", gap: 0, padding: "8px 10px", borderBottom: "1px solid #1a1a24" }}>
+                  {(fieldCfg.isDual ? ["#", fieldCfg.label, fieldCfg.unit2 || "secs", t.pace || "Pace", "✓"] : ["#", fieldCfg.label, t.reps, "✓"]).map(h => (
                     <div key={h} style={{ fontSize: 9, color: "#555", textTransform: "uppercase", letterSpacing: 1, fontWeight: 700 }}>{h}</div>
                   ))}
                 </div>
-                {(ex.sets || []).map((set, si) => (
-                  <div key={si} style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr 40px", gap: 0, padding: "10px 10px", borderBottom: si < (ex.sets || []).length - 1 ? "1px solid #111" : "none", background: set.done ? "#e63c2f08" : "transparent" }}>
-                    <div style={{ color: "#555", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
-                    <div style={{ color: "#e8e4dc", fontSize: 14, fontWeight: 600 }}>{set.weight || "—"}{set.weight ? (fieldCfg.unit || "") : ""}</div>
-                    <div style={{ color: "#e8e4dc", fontSize: 14, fontWeight: 600 }}>{set.reps || "—"}</div>
-                    <div style={{ color: set.done ? "#4ade80" : "#333", fontSize: 14, fontWeight: 700 }}>{set.done ? "✓" : "—"}</div>
-                  </div>
-                ))}
+                {(ex.sets || []).map((set, si) => {
+                  const distM = parseFloat(set.weight);
+                  const timeSecs = parseFloat(set.reps);
+                  const paceStr = fieldCfg.isDual && distM > 0 && timeSecs > 0
+                    ? (() => { const secPer1k = (timeSecs / distM) * 1000; const m = Math.floor(secPer1k / 60); const s = Math.round(secPer1k % 60); return `${m}:${String(s).padStart(2,"0")}/km`; })()
+                    : null;
+                  return (
+                    <div key={si} style={{ display: "grid", gridTemplateColumns: fieldCfg.isDual ? "36px 1fr 1fr 60px 40px" : "36px 1fr 1fr 40px", gap: 0, padding: "10px 10px", borderBottom: si < (ex.sets || []).length - 1 ? "1px solid #111" : "none", background: set.done ? "#e63c2f08" : "transparent" }}>
+                      <div style={{ color: "#555", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
+                      <div style={{ color: "#e8e4dc", fontSize: 14, fontWeight: 600 }}>{set.weight || "—"}{set.weight ? (fieldCfg.unit || "") : ""}</div>
+                      <div style={{ color: "#e8e4dc", fontSize: 14, fontWeight: 600 }}>{set.reps || "—"}</div>
+                      {fieldCfg.isDual && <div style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700 }}>{paceStr || "—"}</div>}
+                      <div style={{ color: set.done ? "#4ade80" : "#333", fontSize: 14, fontWeight: 700 }}>{set.done ? "✓" : "—"}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
@@ -2200,8 +2282,19 @@ Be conservative — only suggest weight increases of 2.5-5kg, only when there ar
               {selEx && exProgress[selEx] && <MiniChart data={exProgress[selEx]} name={selEx} t={t} />}
             </>
           )}
-          <div style={{ marginTop: 22, fontSize: 12, fontWeight: 700, letterSpacing: 2, color: "#e63c2f", textTransform: "uppercase", marginBottom: 12 }}>{t.recentSessions}</div>
-          {[...workoutLogs].reverse().map(log => {
+          <div style={{ marginTop: 22, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, color: "#e63c2f", textTransform: "uppercase" }}>{t.recentSessions}</div>
+            <div style={{ display: "flex", gap: 5 }}>
+              {[["all", t.filterAll], ["week", t.filterWeek], ["month", t.filterMonth]].map(([key, label]) => (
+                <button key={key} onClick={() => setLogFilter(key)} style={{ background: logFilter === key ? "#e63c2f" : "#1a1a24", border: `1px solid ${logFilter === key ? "#e63c2f" : "#2a2a3a"}`, borderRadius: 7, padding: "5px 10px", color: logFilter === key ? "#fff" : "#555", fontSize: 11, fontWeight: 700 }}>{label}</button>
+              ))}
+            </div>
+          </div>
+          {[...workoutLogs].reverse().filter(log => {
+            if (logFilter === "week") return new Date(log.date) > new Date(Date.now() - 7 * 864e5);
+            if (logFilter === "month") return new Date(log.date) > new Date(Date.now() - 30 * 864e5);
+            return true;
+          }).map(log => {
             const completedSets = log.exercises?.reduce((s, ex) => s + (ex.sets?.filter(st => st.done)?.length || 0), 0) || 0;
             const totalSets = log.exercises?.reduce((s, ex) => s + (ex.sets?.length || 0), 0) || 0;
             return (
@@ -2219,6 +2312,13 @@ Be conservative — only suggest weight increases of 2.5-5kg, only when there ar
               </button>
             );
           })}
+          {/* Undo toast */}
+          {pendingLogDelete && (
+            <div style={{ position: "fixed", bottom: "calc(80px + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)", background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 14, zIndex: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.6)", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 13, color: "#888" }}>Log deleted</span>
+              <button onClick={undoDeleteLog} style={{ background: "#e63c2f1a", border: "1px solid #e63c2f44", borderRadius: 8, padding: "6px 14px", color: "#e63c2f", fontWeight: 800, fontSize: 13 }}>{t.undoDelete}</button>
+            </div>
+          )}
         </>
       )}
 
@@ -2375,36 +2475,47 @@ function MacroBar({ protein, carbs, fat }) {
   );
 }
 
-function WeeklyHeatmap({ nutritionLogs, target }) {
+function WeeklyHeatmap({ nutritionLogs, target, calTarget }) {
+  const [mode, setMode] = useState("protein"); // "protein" | "calories"
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
     return d;
   });
+  const isCalMode = mode === "calories";
+  const barTarget = isCalMode ? (calTarget || 2000) : target;
+  const barColor = isCalMode ? "#f5a623" : "#e63c2f";
   return (
     <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "12px 14px", marginTop: 16 }}>
-      <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 10 }}>7-Day Protein</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 10, letterSpacing: 2, color: isCalMode ? "#f5a623" : "#e63c2f", fontWeight: 700, textTransform: "uppercase" }}>7-Day {isCalMode ? "Calories" : "Protein"}</div>
+        <div style={{ display: "flex", gap: 5 }}>
+          {[["protein", "Protein"], ["calories", "Calories"]].map(([key, label]) => (
+            <button key={key} onClick={() => setMode(key)} style={{ background: mode === key ? (key === "calories" ? "#f5a6231a" : "#e63c2f1a") : "#1a1a24", border: `1px solid ${mode === key ? (key === "calories" ? "#f5a62344" : "#e63c2f44") : "#2a2a3a"}`, borderRadius: 6, padding: "3px 9px", color: mode === key ? (key === "calories" ? "#f5a623" : "#e63c2f") : "#555", fontSize: 10, fontWeight: 700 }}>{label}</button>
+          ))}
+        </div>
+      </div>
       <div style={{ display: "flex", gap: 5 }}>
         {days.map((d, i) => {
           const ds = d.toDateString();
           const dayLogs = nutritionLogs.filter(l => new Date(l.date).toDateString() === ds);
-          const total = dayLogs.reduce((s, l) => s + (l.protein || 0), 0);
-          const pct = target > 0 ? Math.min(1, total / target) : 0;
+          const total = dayLogs.reduce((s, l) => s + (isCalMode ? (l.calories || 0) : (l.protein || 0)), 0);
+          const pct = barTarget > 0 ? Math.min(1, total / barTarget) : 0;
           const isToday = ds === new Date().toDateString();
           const hasData = dayLogs.length > 0;
-          const hit = total >= target;
+          const hit = total >= barTarget;
           return (
             <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <div style={{ fontSize: 8, color: isToday ? "#e8e4dc" : "#444", fontWeight: isToday ? 700 : 400 }}>
                 {d.toLocaleDateString(undefined, { weekday: "narrow" })}
               </div>
-              <div style={{ width: "100%", height: 36, background: "#0a0a0f", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "flex-end", border: isToday ? "1px solid #e63c2f44" : "1px solid #1a1a24" }}>
+              <div style={{ width: "100%", height: 36, background: "#0a0a0f", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "flex-end", border: isToday ? `1px solid ${barColor}44` : "1px solid #1a1a24" }}>
                 {hasData && (
-                  <div style={{ width: "100%", height: `${Math.max(8, pct * 100)}%`, background: hit ? "#4ade80" : "#e63c2f", borderRadius: "4px 4px 0 0", transition: "height 0.4s" }} />
+                  <div style={{ width: "100%", height: `${Math.max(8, pct * 100)}%`, background: hit ? "#4ade80" : barColor, borderRadius: "4px 4px 0 0", transition: "height 0.4s" }} />
                 )}
               </div>
-              <div style={{ fontSize: 8, color: hasData ? (hit ? "#4ade80" : "#e63c2f") : "#333", fontWeight: 700 }}>
-                {hasData ? `${total}g` : "—"}
+              <div style={{ fontSize: 8, color: hasData ? (hit ? "#4ade80" : barColor) : "#333", fontWeight: 700 }}>
+                {hasData ? (isCalMode ? `${total}` : `${total}g`) : "—"}
               </div>
             </div>
           );
@@ -2552,7 +2663,7 @@ function AddFoodModal({ onAdd, onClose, t }) {
                   style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 8, width: 44, height: 44, color: "#e8e4dc", fontSize: 20, fontWeight: 700, flexShrink: 0 }}>+</button>
               </div>
             </div>
-            {[["name", t.foodName, "text"], ["protein", t.proteinG, "decimal"], ["calories", t.caloriesLabel, "decimal"], ["carbs", "Carbs (g)", "decimal"], ["fat", "Fat (g)", "decimal"]].map(([f, label, mode]) => (
+            {[["name", t.foodName, "text"], ["protein", t.proteinG, "decimal"], ["calories", t.caloriesLabel, "decimal"], ["carbs", t.carbsG, "decimal"], ["fat", t.fatG, "decimal"]].map(([f, label, mode]) => (
               <div key={f} style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 10, color: "#555", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{label}</div>
                 <input value={custom[f]} onChange={e => setCustom(c => ({ ...c, [f]: e.target.value }))}
@@ -2585,11 +2696,26 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
   const calPct     = Math.min(100, (totalCals / calTarget) * 100);
   const todayWorkout = workoutLogs.find(l => new Date(l.date).toDateString() === today);
 
+  const [pendingFoodDelete, setPendingFoodDelete] = useState(null);
+
   const addFood = f => {
     setNutritionLogs(p => [...p, { ...f, date: new Date().toISOString(), id: Date.now() }]);
     setShowAdd(false);
   };
-  const deleteFood = id => setNutritionLogs(p => p.filter(l => l.id !== id));
+  const deleteFood = id => {
+    const item = nutritionLogs.find(l => l.id === id);
+    if (!item) return;
+    setNutritionLogs(p => p.filter(l => l.id !== id));
+    if (pendingFoodDelete?.timer) clearTimeout(pendingFoodDelete.timer);
+    const timer = setTimeout(() => setPendingFoodDelete(null), 4000);
+    setPendingFoodDelete({ item, timer });
+  };
+  const undoDeleteFood = () => {
+    if (!pendingFoodDelete) return;
+    clearTimeout(pendingFoodDelete.timer);
+    setNutritionLogs(p => [...p, pendingFoodDelete.item].sort((a, b) => new Date(a.date) - new Date(b.date)));
+    setPendingFoodDelete(null);
+  };
 
   // Group today's logs into meal buckets by hour
   const mealBuckets = { Morning: [], Afternoon: [], Evening: [] };
@@ -2675,7 +2801,14 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
       )}
 
       {/* Weekly heatmap */}
-      <WeeklyHeatmap nutritionLogs={nutritionLogs} target={target} />
+      <WeeklyHeatmap nutritionLogs={nutritionLogs} target={target} calTarget={calTarget} />
+      {/* Food delete undo toast */}
+      {pendingFoodDelete && (
+        <div style={{ position: "fixed", bottom: "calc(80px + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)", background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", gap: 14, zIndex: 400, boxShadow: "0 4px 24px rgba(0,0,0,0.6)", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 13, color: "#888" }}>{pendingFoodDelete.item.name} removed</span>
+          <button onClick={undoDeleteFood} style={{ background: "#e63c2f1a", border: "1px solid #e63c2f44", borderRadius: 8, padding: "6px 14px", color: "#e63c2f", fontWeight: 800, fontSize: 13 }}>{t.undoDelete}</button>
+        </div>
+      )}
       <div style={{ height: 20 }} />
 
       {showAdd && <AddFoodModal onAdd={addFood} onClose={() => setShowAdd(false)} t={t} />}
@@ -2885,7 +3018,12 @@ function AICoachTab({ profile, sessions, workoutLogs, nutritionLogs, photos, set
     return () => clearInterval(interval);
   }, []);
 
-  const ctx = () => `Profile: ${JSON.stringify(profile)}\nSessions: ${JSON.stringify(sessions.map(s => ({ name: s.name, exercises: s.exercises?.map(e => e.name) })))}\nRecent workouts: ${JSON.stringify(workoutLogs.slice(-5).map(l => ({ date: l.date, session: l.sessionName })))}\nRecent nutrition: ${JSON.stringify(nutritionLogs.slice(-8).map(l => ({ name: l.name, protein: l.protein })))}`;
+  const ctx = () => {
+    const hyroxNames = new Set((EXERCISE_DB.hyrox || []).map(e => e.name));
+    const hyroxSessions = sessions.filter(s => s.exercises?.some(e => hyroxNames.has(e.name)));
+    const hyroxNote = hyroxSessions.length > 0 ? `\nUser has ${hyroxSessions.length} Hyrox session(s): ${hyroxSessions.map(s => s.name).join(", ")}` : "";
+    return `Profile: ${JSON.stringify(profile)}\nSessions: ${JSON.stringify(sessions.map(s => ({ name: s.name, exercises: s.exercises?.map(e => e.name) })))}${hyroxNote}\nRecent workouts: ${JSON.stringify(workoutLogs.slice(-5).map(l => ({ date: l.date, session: l.sessionName })))}\nRecent nutrition: ${JSON.stringify(nutritionLogs.slice(-8).map(l => ({ name: l.name, protein: l.protein })))}`;
+  };
 
   const UNIFIED_SYSTEM = `You are Iron Protocol's AI fitness coach. You ONLY answer questions about gym training, workout programming, exercise technique, nutrition, recovery, and body composition. If asked anything unrelated, reply: "I'm your Iron Protocol coach — I can only help with training, nutrition, and fitness goals."
 
@@ -2998,7 +3136,7 @@ SESSION: [Session Name]
     setMessages(p => [...p, { role: "assistant", content: `✅ ${t.planLive} 💪` }]);
   };
 
-  const quickPrompts = [t.prompt1, t.prompt2, t.prompt3, t.prompt4];
+  const quickPrompts = [t.prompt1, t.prompt2, t.prompt3, t.prompt4, t.prompt5];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }} className="slide-in">
