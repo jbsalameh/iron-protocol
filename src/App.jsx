@@ -873,6 +873,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
         .gym-btn { min-height: 48px; display: flex; align-items: center; justify-content: center; }
         .gym-btn:active { transform: scale(0.97); }
+        .sticky-top { position: -webkit-sticky; position: sticky; }
       `}</style>
 
       <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #1a1a24", background: "#0a0a0f", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1779,29 +1780,38 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
 
   // ─── Logging screen ──────────────────────────────────────────────────
   return (
-    <div style={{ padding: 18 }} className="slide-in">
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: started ? 10 : 18 }}>
-        <button onClick={() => { if (started && !saved) { if (!window.confirm("Quit session?")) return; } clearInterval(timerRef.current); setSel(null); }} style={{ background: "#1a1a24", border: "none", borderRadius: 7, padding: "5px 9px", color: "#888" }}>←</button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 19, fontWeight: 800 }}>{sel.name}</div>
-          <div style={{ color: "#555", fontSize: 12 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
-        </div>
-        {started && (
-          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "6px 12px", textAlign: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#e63c2f", fontVariantNumeric: "tabular-nums" }}>{fmtTime(elapsed)}</div>
-            <div style={{ fontSize: 8, color: "#555", letterSpacing: 1 }}>{t.gymTime?.toUpperCase()}</div>
+    <div className="slide-in">
+      {/* ── Sticky header: timer + rest banner always visible while scrolling ── */}
+      <div className="sticky-top" style={{
+        top: 0, zIndex: 20, background: "#0a0a0f",
+        paddingTop: 16, paddingLeft: 18, paddingRight: 18,
+        paddingBottom: started ? 12 : 16,
+        borderBottom: "1px solid #111",
+      }}>
+        {/* Row: back ← · session name · elapsed timer pill */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: (restTimer && started) ? 10 : 0 }}>
+          <button onClick={() => { if (started && !saved) { if (!window.confirm("Quit session?")) return; } clearInterval(timerRef.current); setSel(null); }} style={{ background: "#1a1a24", border: "none", borderRadius: 7, padding: "5px 9px", color: "#888" }}>←</button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 19, fontWeight: 800 }}>{sel.name}</div>
+            <div style={{ color: "#555", fontSize: 12 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
           </div>
+          {started && (
+            <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "6px 12px", textAlign: "center", flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#e63c2f", fontVariantNumeric: "tabular-nums" }}>{fmtTime(elapsed)}</div>
+              <div style={{ fontSize: 8, color: "#555", letterSpacing: 1 }}>{t.gymTime?.toUpperCase()}</div>
+            </div>
+          )}
+        </div>
+        {/* Rest banner lives here — scrolls with sticky header, never disappears */}
+        {restTimer && started && (
+          <RestBanner seconds={restTimer.seconds} t={t}
+            onDone={() => { setRestLog(r => [...r, restTimer.seconds]); setRestTimer(null); }}
+            onSkip={() => { setRestLog(r => [...r, 0]); setRestTimer(null); }} />
         )}
       </div>
 
-      {/* Inline rest banner — non-blocking, sits below header when active */}
-      {restTimer && started && (
-        <RestBanner seconds={restTimer.seconds} t={t}
-          onDone={() => { setRestLog(r => [...r, restTimer.seconds]); setRestTimer(null); }}
-          onSkip={() => { setRestLog(r => [...r, 0]); setRestTimer(null); }} />
-      )}
-
+      {/* ── Scrollable body ── */}
+      <div style={{ padding: "14px 18px 18px" }}>
       {/* Start button */}
       {!started && (
         <button onClick={() => { setStarted(true); setStartTime(Date.now()); }} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -1889,6 +1899,7 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
       <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder={t.sessionNotes} style={{ width: "100%", background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "12px 14px", color: "#e8e4dc", fontSize: 14, resize: "none", height: 72, marginBottom: 14 }} />
       <button onClick={saveLog} disabled={!started} className="gym-btn" style={{ width: "100%", background: started ? "#e63c2f" : "#333", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52, opacity: started ? 1 : 0.5 }}>💪 {t.completeSession}</button>
       <div style={{ height: 20 }} />
+      </div>{/* end scrollable body */}
 
       {showAddExercise && (
         <ExercisePickerModal
