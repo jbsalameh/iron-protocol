@@ -1878,6 +1878,10 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
                 </div>
               </div>
               <div style={{ display: "flex", gap: 5 }}>
+                {isDuration && started && (
+                  <button onClick={() => { const si = sets.findIndex(s => !s.done); startExTimer(ei, si >= 0 ? si : 0); }}
+                    style={{ background: timedSet?.ei === ei ? "#f5a6231a" : "#1a1a24", border: `1px solid ${timedSet?.ei === ei ? "#f5a62366" : "#252535"}`, borderRadius: 7, padding: "4px 10px", color: "#f5a623", fontSize: 15, fontWeight: 700, lineHeight: 1 }}>▶</button>
+                )}
                 <button onClick={() => setShowRpeFor(p => ({ ...p, [ei]: !p[ei] }))}
                   style={{ background: showRpeFor[ei] ? "#e63c2f1a" : "#1a1a24", border: `1px solid ${showRpeFor[ei] ? "#e63c2f44" : "#252535"}`, borderRadius: 7, padding: "4px 9px", color: showRpeFor[ei] ? "#e63c2f" : "#555", fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}>RPE</button>
                 <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "4px 9px", color: "#e63c2f", fontSize: 11, fontWeight: 700 }}><Icon name="info" size={11} /></button>
@@ -1917,17 +1921,10 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
                       style={{ background: "#0a0a0f", border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`, borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
                     <input value={set.reps} onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))} placeholder={fieldCfg.isDual ? (fieldCfg.placeholder2 || "secs") : ex.reps || (isDuration ? "rounds" : "reps")} inputMode="numeric"
                       style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
-                    {isDuration && started ? (
-                      <button onClick={() => startExTimer(ei, si)} className="gym-btn"
-                        style={{ background: "#f5a6231a", border: "2px solid #f5a62366", borderRadius: 8, padding: 8, color: "#f5a623", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, fontSize: 18 }}>
-                        ▶
-                      </button>
-                    ) : (
-                      <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
-                        style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
-                        <Icon name="check" size={18} />
-                      </button>
-                    )}
+                    <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
+                      style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
+                      <Icon name="check" size={18} />
+                    </button>
                   </div>
                 )}
                 {showRpeFor[ei] && (
