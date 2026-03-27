@@ -249,7 +249,8 @@ LEGS: Squat (barbell), Romanian Deadlift (barbell), Leg Press (machine), Bulgari
 BICEPS: Barbell Curl (barbell), Dumbbell Curl (dumbbell), Hammer Curl (dumbbell), Preacher Curl (barbell), Cable Curl (cable)
 TRICEPS: Skull Crushers (barbell), Tricep Pushdown (cable), Overhead Tricep Extension (dumbbell), Diamond Push-ups (bodyweight), Close-grip Bench Press (barbell)
 CORE: Plank (bodyweight), Crunches (bodyweight), Hanging Leg Raises (bodyweight), Russian Twists (bodyweight), Ab Wheel Rollout (bodyweight), Mountain Climbers (bodyweight)
-CARDIO: Burpees (bodyweight), Box Jumps (bodyweight), Kettlebell Swing (dumbbell), Battle Ropes (bodyweight), Jump Rope (bodyweight), Skillrow (machine), Rowing Machine (machine), Assault Bike (machine), Sled Push (bodyweight), Farmer's Walk (dumbbell), Stairmaster (machine)`;
+CARDIO: Burpees (bodyweight), Box Jumps (bodyweight), Kettlebell Swing (dumbbell), Battle Ropes (bodyweight), Jump Rope (bodyweight), Skillrow (machine), Rowing Machine (machine), Assault Bike (machine), Sled Push (bodyweight), Farmer's Walk (dumbbell), Stairmaster (machine)
+HYROX: SkiErg (machine), Sled Pull (bodyweight), Burpee Broad Jumps (bodyweight), Sandbag Lunges (bodyweight), Wall Balls (bodyweight), Running (bodyweight)`;
 
 const EXERCISE_TIPS = {
   "Bench Press": "Lie flat, grip slightly wider than shoulder-width. Lower the bar to mid-chest with control, keeping elbows at ~75°. Press up explosively. Keep your feet flat, back slightly arched, and shoulder blades retracted throughout.",
@@ -277,6 +278,12 @@ const EXERCISE_TIPS = {
   "Sled Push": "Grip handles at chest or waist height. Drive through legs, keeping arms extended and back flat. Take short, powerful steps. Stay low — the lower your body angle, the more leg drive you get.",
   "Farmer's Walk": "Pick up heavy dumbbells or kettlebells at your sides. Stand tall, shoulders back and down. Walk with short, quick steps. Squeeze the handles hard and keep core braced throughout.",
   "Stairmaster": "Stand tall, don't lean on the handrails. Drive through the full foot, not just toes. Keep a steady pace. For more glute activation, take bigger steps and lean slightly forward.",
+  "SkiErg": "Stand facing the machine, feet hip-width. Grip both handles overhead and pull down explosively, hinging at the hips as you drive the handles to your thighs. Extend back up with control. Drive with the lats — this is not just an arm movement. Keep core braced throughout.",
+  "Sled Pull": "Face away from the sled, rope between legs. Hinge at hips, grip rope with both hands, and pull hand-over-hand in a powerful rowing motion. Step back one pace per pull to maintain tension. Keep a low athletic stance and drive through the legs to assist each pull.",
+  "Burpee Broad Jumps": "From standing, drop hands to floor, jump feet back to plank, perform a full push-up, jump feet forward, then explode into a broad jump forward — landing softly with bent knees. Immediately flow into the next rep. Keep reps rhythmic and maintain consistent jump distance.",
+  "Sandbag Lunges": "Hold sandbag on one shoulder or in a bear hug. Take a long stride forward, lower back knee toward floor, then drive through front heel to stand and step through. Alternate legs each rep. Keep torso tall — resist the bag pulling you to one side.",
+  "Wall Balls": "Hold medicine ball at chest, feet shoulder-width. Squat to parallel depth, then drive up explosively, pressing the ball upward to hit the target (10ft mark). Catch the ball on the way down, absorb with a squat, and flow directly into the next rep. Keep your elbows up during the catch.",
+  "Running": "Maintain an upright posture, slight forward lean from the ankles (not the waist). Arms swing front to back at 90°, not across the body. Land with foot under your centre of mass. For Hyrox, pace conservatively — you have 8 runs of 1km, each followed by a functional station.",
 };
 
 const MUSCLE_ID_MAP = {
@@ -362,6 +369,14 @@ const EXERCISE_DB = {
     { name: "Sled Push", muscles: ["quads", "glutes", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
     { name: "Farmer's Walk", muscles: ["forearms", "traps", "core"], equipment: "dumbbell", wgerId: 0, gifId: "" },
     { name: "Stairmaster", muscles: ["quads", "glutes", "calves"], equipment: "machine", wgerId: 0, gifId: "" },
+  ],
+  hyrox: [
+    { name: "SkiErg", muscles: ["back", "shoulders", "core", "triceps"], equipment: "machine", wgerId: 0, gifId: "" },
+    { name: "Sled Pull", muscles: ["back", "glutes", "hamstrings", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
+    { name: "Burpee Broad Jumps", muscles: ["quads", "chest", "shoulders", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
+    { name: "Sandbag Lunges", muscles: ["quads", "glutes", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
+    { name: "Wall Balls", muscles: ["quads", "glutes", "shoulders", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
+    { name: "Running", muscles: ["quads", "glutes", "calves", "core"], equipment: "bodyweight", wgerId: 0, gifId: "" },
   ],
 };
 
@@ -1475,6 +1490,13 @@ const EX_FIELD_CONFIG = {
   "Sled Push":           { label: "Weight",   placeholder: "kg",      unit: "kg" },
   "Farmer's Walk":       { label: "Weight",   placeholder: "kg",      unit: "kg" },
   "Stairmaster":         { label: "Duration", placeholder: "secs",    unit: "s" },
+  // Hyrox stations
+  "SkiErg":              { label: "Distance", placeholder: "m",       unit: "m",  unit2: "Time", placeholder2: "secs", isDual: true },
+  "Sled Pull":           { label: "Weight",   placeholder: "kg",      unit: "kg" },
+  "Burpee Broad Jumps":  { label: "Distance", placeholder: "m",       unit: "m" },
+  "Sandbag Lunges":      { label: "Weight",   placeholder: "kg",      unit: "kg" },
+  "Wall Balls":          { label: "Weight",   placeholder: "kg",      unit: "kg" },
+  "Running":             { label: "Distance", placeholder: "m",       unit: "m",  unit2: "Time", placeholder2: "secs", isDual: true },
   // Default (barbell, dumbbell, machine, cable)
 };
 
@@ -2880,6 +2902,19 @@ Rules for workout responses:
 4. Weight: number followed by "kg" (use 0kg for bodyweight)
 5. Write 1-2 sentences of intro, then SESSION blocks — nothing after
 6. Do NOT add bullet explanations, footnotes, or any text between/after sessions
+
+HYROX COMPETITION KNOWLEDGE:
+A Hyrox race consists of 8 x 1km runs alternating with 8 functional stations (in this exact order):
+1. 1km Run → SkiErg 1000m
+2. 1km Run → Sled Push 50m (men: +152kg / women: +102kg — adjust for training)
+3. 1km Run → Sled Pull 50m (men: +103kg / women: +78kg)
+4. 1km Run → Burpee Broad Jumps 80m
+5. 1km Run → Rowing Machine 1000m
+6. 1km Run → Farmer's Walk 200m (men: 2×24kg / women: 2×16kg)
+7. 1km Run → Sandbag Lunges 100m (men: 20kg / women: 10kg)
+8. 1km Run → Wall Balls 100 reps (men: 9kg to 10ft / women: 6kg to 9ft)
+Total distance: ~10km running + all stations.
+When building Hyrox prep plans, structure sessions around these stations and running capacity. Use Running for the run intervals. Good prep includes: aerobic base building, station-specific practice, lactate threshold running, and race-pace simulation blocks.
 
 When the user asks a general question (technique, nutrition, recovery, advice): answer conversationally. Be specific, practical, and concise. No filler.`;
 
