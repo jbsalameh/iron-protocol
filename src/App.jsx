@@ -1613,6 +1613,9 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   const [restLog, setRestLog] = useState([]); // completed rest durations
   const [showRpeFor, setShowRpeFor] = useState({}); // { [ei]: bool }
   const [rpeData, setRpeData] = useState({});       // { [ei]: { [si]: 1-10 } }
+  const [timedSet, setTimedSet] = useState(null);   // { ei, si, totalSecs, remaining, elapsed }
+  const [autoComplete, setAutoComplete] = useState(null); // { ei, si } — fires handleSetDone after timer
+  const timedExRef = useRef(null);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [savedLog, setSavedLog] = useState(null);
@@ -1626,6 +1629,43 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   }, [started, startTime]);
 
   const fmtTime = s => `${String(Math.floor(s/3600)).padStart(2,"0")}:${String(Math.floor((s%3600)/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  // Fire handleSetDone outside of state updater (avoids closure issues)
+  useEffect(() => {
+    if (autoComplete) { handleSetDone(autoComplete.ei, autoComplete.si); setAutoComplete(null); }
+  }, [autoComplete]);
+
+  const startExTimer = (ei, si) => {
+    const entered = parseInt(logData[ei]?.[si]?.weight);
+    const totalSecs = entered > 0 ? entered : null; // null = stopwatch mode
+    clearInterval(timedExRef.current);
+    setTimedSet({ ei, si, totalSecs, remaining: totalSecs ?? 0, elapsed: 0 });
+    timedExRef.current = setInterval(() => {
+      setTimedSet(prev => {
+        if (!prev) return null;
+        if (prev.totalSecs !== null) {
+          const next = prev.remaining - 1;
+          if (next <= 0) {
+            clearInterval(timedExRef.current);
+            if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([150, 80, 150]);
+            setAutoComplete({ ei: prev.ei, si: prev.si });
+            return null;
+          }
+          return { ...prev, remaining: next };
+        }
+        return { ...prev, elapsed: prev.elapsed + 1 };
+      });
+    }, 1000);
+  };
+
+  const stopExTimer = () => {
+    clearInterval(timedExRef.current);
+    if (timedSet && timedSet.totalSecs === null) {
+      // Stopwatch mode: fill in elapsed duration
+      handleWeightChange(timedSet.ei, timedSet.si, String(timedSet.elapsed));
+    }
+    setTimedSet(null);
+  };
 
   const getLastLoggedData = (ex, numSets) => {
     for (let i = workoutLogs.length - 1; i >= 0; i--) {
@@ -1788,19 +1828,20 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
         paddingBottom: started ? 12 : 16,
         borderBottom: "1px solid #111",
       }}>
-        {/* Row: back ← · session name · elapsed timer pill */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: (restTimer && started) ? 10 : 0 }}>
+        {/* Row: back ← · session name */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           <button onClick={() => { if (started && !saved) { if (!window.confirm("Quit session?")) return; } clearInterval(timerRef.current); setSel(null); }} style={{ background: "#1a1a24", border: "none", borderRadius: 7, padding: "5px 9px", color: "#888" }}>←</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 19, fontWeight: 800 }}>{sel.name}</div>
             <div style={{ color: "#555", fontSize: 12 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
           </div>
-          {started && (
-            <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 10, padding: "6px 12px", textAlign: "center", flexShrink: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: "#e63c2f", fontVariantNumeric: "tabular-nums" }}>{fmtTime(elapsed)}</div>
-              <div style={{ fontSize: 8, color: "#555", letterSpacing: 1 }}>{t.gymTime?.toUpperCase()}</div>
-            </div>
-          )}
+        </div>
+        {/* Elapsed timer — always shown, counts once started */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, background: started ? "#e63c2f12" : "#111", border: `1px solid ${started ? "#e63c2f33" : "#1a1a24"}`, borderRadius: 12, padding: "10px 18px", marginBottom: (restTimer && started) ? 10 : 0, transition: "background 0.4s, border-color 0.4s" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 28, fontWeight: 800, color: started ? "#e63c2f" : "#333", fontVariantNumeric: "tabular-nums", letterSpacing: 2, lineHeight: 1 }}>{fmtTime(elapsed)}</div>
+            <div style={{ fontSize: 9, color: started ? "#e63c2f88" : "#333", letterSpacing: 2, textTransform: "uppercase", marginTop: 3 }}>{started ? t.gymTime : t.startWorkout}</div>
+          </div>
         </div>
         {/* Rest banner lives here — scrolls with sticky header, never disappears */}
         {restTimer && started && (
@@ -1850,17 +1891,45 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
             </div>
             {sets.map((set, si) => (
               <div key={si}>
-                <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: showRpeFor[ei] ? 4 : 6, alignItems: "center" }}>
-                  <div style={{ color: "#444", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
-                  <input value={set.weight} onChange={e => handleWeightChange(ei, si, e.target.value)} placeholder={fieldCfg.placeholder} inputMode="decimal"
-                    style={{ background: "#0a0a0f", border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`, borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
-                  <input value={set.reps} onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))} placeholder={fieldCfg.isDual ? (fieldCfg.placeholder2 || "secs") : ex.reps || (isDuration ? "rounds" : "reps")} inputMode="numeric"
-                    style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
-                  <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
-                    style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
-                    <Icon name="check" size={18} />
-                  </button>
-                </div>
+                {timedSet?.ei === ei && timedSet?.si === si ? (
+                  /* ── Active exercise countdown / stopwatch ── */
+                  <div style={{ background: "#e63c2f0a", border: "1px solid #e63c2f33", borderRadius: 10, padding: "10px 12px", marginBottom: showRpeFor[ei] ? 4 : 6, display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ color: "#444", fontSize: 13, fontWeight: 600, flexShrink: 0, width: 20 }}>{si + 1}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ height: 3, background: "#1a1a24", borderRadius: 2, marginBottom: 6, overflow: "hidden" }}>
+                        {timedSet.totalSecs
+                          ? <div style={{ height: "100%", width: `${(timedSet.remaining / timedSet.totalSecs) * 100}%`, background: "#e63c2f", borderRadius: 2, transition: "width 0.9s linear" }} />
+                          : <div style={{ height: "100%", width: "100%", background: "#e63c2f44", borderRadius: 2 }} />}
+                      </div>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: "#e63c2f", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                        {timedSet.totalSecs ? `${timedSet.remaining}s` : `${timedSet.elapsed}s`}
+                      </div>
+                      {timedSet.totalSecs && <div style={{ fontSize: 9, color: "#e63c2f66", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>of {timedSet.totalSecs}s</div>}
+                    </div>
+                    <button onClick={stopExTimer} className="gym-btn"
+                      style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 8, padding: 8, color: "#888", minWidth: 44, minHeight: 44, fontSize: 16 }}>■</button>
+                  </div>
+                ) : (
+                  /* ── Normal set row ── */
+                  <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 1fr 44px", gap: 6, marginBottom: showRpeFor[ei] ? 4 : 6, alignItems: "center" }}>
+                    <div style={{ color: "#444", fontSize: 13, fontWeight: 600 }}>{si + 1}</div>
+                    <input value={set.weight} onChange={e => handleWeightChange(ei, si, e.target.value)} placeholder={fieldCfg.placeholder} inputMode="decimal"
+                      style={{ background: "#0a0a0f", border: `1px solid ${set.weight ? "#3a3a4a" : "#2a2a3a"}`, borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
+                    <input value={set.reps} onChange={e => setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, reps: e.target.value } : s) }))} placeholder={fieldCfg.isDual ? (fieldCfg.placeholder2 || "secs") : ex.reps || (isDuration ? "rounds" : "reps")} inputMode="numeric"
+                      style={{ background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 8, padding: "10px 10px", color: "#e8e4dc", fontSize: 16, width: "100%", minHeight: 44 }} />
+                    {isDuration && started ? (
+                      <button onClick={() => startExTimer(ei, si)} className="gym-btn"
+                        style={{ background: "#f5a6231a", border: "2px solid #f5a62366", borderRadius: 8, padding: 8, color: "#f5a623", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, fontSize: 18 }}>
+                        ▶
+                      </button>
+                    ) : (
+                      <button onClick={() => handleSetDone(ei, si)} className="gym-btn"
+                        style={{ background: set.done ? "#e63c2f" : "#1a1a24", border: `2px solid ${set.done ? "#e63c2f" : "#252535"}`, borderRadius: 8, padding: 8, color: set.done ? "#fff" : "#444", display: "flex", alignItems: "center", justifyContent: "center", minWidth: 44, minHeight: 44, transition: "all 0.15s" }}>
+                        <Icon name="check" size={18} />
+                      </button>
+                    )}
+                  </div>
+                )}
                 {showRpeFor[ei] && (
                   <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6, paddingLeft: 34 }}>
                     <span style={{ fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0 }}>{t.showRpe || "RPE"}</span>
