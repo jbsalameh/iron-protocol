@@ -1170,21 +1170,9 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExerci
                   <div style={{ color: "#e63c2f", fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>{session.exercises?.length || 0} {t.exercises?.toUpperCase()}</div>
                   {lastLog && <div style={{ color: "#444", fontSize: 11, marginTop: 2 }}>{t.lastLog}: {new Date(lastLog.date).toLocaleDateString()}</div>}
                 </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={() => setSessions(s => [...s, { ...session, id: Date.now(), name: `${session.name} (copy)` }])} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "5px 9px", color: "#555", fontSize: 12 }}>{t.copySession}</button>
-                  <button onClick={() => setEditSession({ ...session, idx })} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "5px 9px", color: "#888", fontSize: 12 }}>{t.edit}</button>
+                <div style={{ display: "flex", gap: 5 }}>
+                  <button onClick={() => setEditSession({ ...session, idx })} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 7, padding: "5px 10px", color: "#888", fontSize: 12 }}>{t.edit}</button>
                   <button onClick={() => setSessions(s => s.filter((_, i) => i !== idx))} style={{ background: "none", border: "1px solid #252535", borderRadius: 7, padding: "5px 7px", color: "#444" }}><Icon name="trash" size={13} /></button>
-                </div>
-              </div>
-              <div style={{ background: "#0d0d18", borderRadius: 10, padding: "10px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
-                <MuscleMap muscles={muscles} size={88} />
-                <div>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>{t.muscleToday}</div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {muscles.map(m => (
-                      <span key={m} style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 5, padding: "2px 7px", fontSize: 10, color: "#e63c2f", fontWeight: 600, textTransform: "capitalize" }}>{m}</span>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>
@@ -1194,6 +1182,18 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExerci
             </button>
             {open && (
               <div style={{ padding: "4px 14px 14px" }}>
+                {/* Muscle map — only visible when expanded */}
+                <div style={{ background: "#0d0d18", borderRadius: 10, padding: "10px 12px", marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
+                  <MuscleMap muscles={muscles} size={80} />
+                  <div>
+                    <div style={{ fontSize: 9, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>{t.muscleToday}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {muscles.map(m => (
+                        <span key={m} style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 5, padding: "2px 7px", fontSize: 10, color: "#e63c2f", fontWeight: 600, textTransform: "capitalize" }}>{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
                 {session.exercises?.map((ex, ei) => (
                   <div key={ei} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 0", borderTop: "1px solid #1a1a24" }}>
                     <div>
@@ -1652,6 +1652,7 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   const [logData, setLogData] = useState({});
   const [notes, setNotes] = useState("");
   const [saved, setSaved] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState(null); // { session, draft }
   const [showDemo, setShowDemo] = useState(null);
   const [started, setStarted] = useState(false);
   const [startTime, setStartTime] = useState(null);
@@ -1728,21 +1729,23 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
     return null;
   };
 
+  const resumeDraft = (s, draft) => {
+    const exs = s.exercises || [];
+    setLogData(draft.logData); setSel(s); setSessionExercises(exs);
+    setSaved(false); setNotes(draft.notes || ""); setStarted(false); setElapsed(draft.elapsed || 0); setRestLog([]); setShowSummary(false); setSavedLog(null);
+    setPendingDraft(null);
+  };
+
   const initLog = s => {
     const exs = s.exercises || [];
-    // Check for an in-progress draft
+    // Check for an in-progress draft — show non-blocking banner instead of confirm()
     const draftKey = `log_draft_${s.id}`;
     try {
       const raw = sessionStorage.getItem(draftKey);
       if (raw) {
         const draft = JSON.parse(raw);
-        if (window.confirm("You have an unfinished session. Continue where you left off?")) {
-          setLogData(draft.logData); setSel(s); setSessionExercises(exs);
-          setSaved(false); setNotes(draft.notes || ""); setStarted(false); setElapsed(draft.elapsed || 0); setRestLog([]); setShowSummary(false); setSavedLog(null);
-          return;
-        } else {
-          sessionStorage.removeItem(draftKey);
-        }
+        setPendingDraft({ session: s, draft });
+        return;
       }
     } catch (_) {}
     const d = {};
@@ -1833,6 +1836,23 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
     <div style={{ padding: 18 }} className="slide-in">
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 5 }}>{t.logWorkout}</div>
       <div style={{ color: "#555", fontSize: 13, marginBottom: 18 }}>{t.selectSession}</div>
+      {/* Draft recovery banner */}
+      {pendingDraft && (
+        <div style={{ background: "#0c1a0c", border: "1px solid #4ade8044", borderRadius: 13, padding: "14px 16px", marginBottom: 14 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#4ade80", marginBottom: 6 }}>⚡ Unfinished session found</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>{pendingDraft.session.name} — continue where you left off?</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => resumeDraft(pendingDraft.session, pendingDraft.draft)} className="gym-btn"
+              style={{ flex: 1, background: "#4ade801a", border: "1px solid #4ade8044", borderRadius: 10, padding: "10px", color: "#4ade80", fontWeight: 800, fontSize: 13, minHeight: 44 }}>
+              Continue
+            </button>
+            <button onClick={() => { try { sessionStorage.removeItem(`log_draft_${pendingDraft.session.id}`); } catch(_){} setPendingDraft(null); }} className="gym-btn"
+              style={{ flex: 1, background: "#1a1a24", border: "1px solid #252535", borderRadius: 10, padding: "10px", color: "#555", fontWeight: 700, fontSize: 13, minHeight: 44 }}>
+              Start fresh
+            </button>
+          </div>
+        </div>
+      )}
       {sessions.length === 0
         ? <div style={{ textAlign: "center", padding: 40, color: "#555", fontSize: 14 }}>{t.createFirst}</div>
         : sessions.map(s => (
@@ -1939,11 +1959,11 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>{ex.name}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 9, background: "#1a1a24", borderRadius: 4, padding: "1px 6px", color: "#555", textTransform: "uppercase", letterSpacing: 1 }}>{ex.equipment}</span>
-                  {isBodyweight && <span style={{ fontSize: 9, background: "#4ade801a", border: "1px solid #4ade8033", borderRadius: 4, padding: "1px 6px", color: "#4ade80", fontWeight: 700 }}>{t.bodyweight}</span>}
-                  {isDuration && <span style={{ fontSize: 9, background: "#f5a6231a", border: "1px solid #f5a62333", borderRadius: 4, padding: "1px 6px", color: "#f5a623", fontWeight: 700 }}>{t.timed}</span>}
-                  {ex.restSeconds && <span style={{ fontSize: 9, background: "#2563eb1a", border: "1px solid #2563eb33", borderRadius: 4, padding: "1px 6px", color: "#60a5fa", fontWeight: 700 }}>⏱ {ex.restSeconds}s</span>}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+                  <span style={{ fontSize: 10, color: "#444", textTransform: "capitalize" }}>{ex.equipment}</span>
+                  {isBodyweight && <span style={{ fontSize: 9, color: "#4ade80", fontWeight: 700 }}>· BW</span>}
+                  {isDuration && <span style={{ fontSize: 9, color: "#f5a623", fontWeight: 700 }}>· TIMED</span>}
+                  {ex.restSeconds && <span style={{ fontSize: 10, color: "#444" }}>· ⏱ {ex.restSeconds}s rest</span>}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 5 }}>
@@ -2474,7 +2494,7 @@ Return ONLY a valid JSON array. No markdown, no commentary.`;
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 9, marginBottom: 22 }}>
         {[[t.total, total], [t.thisWeek, week], [t.thisMonth, month]].map(([label, val]) => (
           <div key={label} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "14px 8px", textAlign: "center" }}>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#e63c2f" }}>{val}</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: val > 0 ? "#e63c2f" : "#2a2a3a" }}>{val > 0 ? val : "—"}</div>
             <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase" }}>{label}</div>
           </div>
         ))}
