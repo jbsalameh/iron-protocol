@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   nutritionLogs: "gym_nutrition_logs",
   photos: "gym_photos",
   customExercises: "gym_custom_exercises",
+  bodyWeightLogs: "gym_bodyweight",
 };
 
 const defaultProfile = {
@@ -713,6 +714,7 @@ export default function GymTracker() {
   const [nutritionLogs, setNutritionLogs] = useState(() => load(STORAGE_KEYS.nutritionLogs, []));
   const [photos, setPhotos] = useState(() => load(STORAGE_KEYS.photos, []));
   const [customExercises, setCustomExercises] = useState(() => load(STORAGE_KEYS.customExercises, []));
+  const [bodyWeightLogs, setBodyWeightLogs] = useState(() => load(STORAGE_KEYS.bodyWeightLogs, []));
   const [showProfileSetup, setShowProfileSetup] = useState(!profile.name);
   const [autoSuggestData, setAutoSuggestData] = useState(null); // null or { changes: [...] }
   const [showAutoSuggest, setShowAutoSuggest] = useState(false);
@@ -727,6 +729,7 @@ export default function GymTracker() {
   useEffect(() => { save(STORAGE_KEYS.nutritionLogs, nutritionLogs); }, [nutritionLogs]);
   useEffect(() => { save(STORAGE_KEYS.photos, photos); }, [photos]);
   useEffect(() => { save(STORAGE_KEYS.customExercises, customExercises); }, [customExercises]);
+  useEffect(() => { save(STORAGE_KEYS.bodyWeightLogs, bodyWeightLogs); }, [bodyWeightLogs]);
 
   // Auto-suggest: trigger AI analysis every 3 new sessions
   useEffect(() => {
@@ -920,7 +923,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
         {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />}
         {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} customExercises={customExercises} t={t} />}
-        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} profile={profile} t={t} />}
+        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} profile={profile} bodyWeightLogs={bodyWeightLogs} setBodyWeightLogs={setBodyWeightLogs} t={t} />}
         {tab === "nutrition" && <NutritionTab nutritionLogs={nutritionLogs} setNutritionLogs={setNutritionLogs} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} t={t} />}
         {tab === "ai" && <AICoachTab profile={profile} sessions={sessions} workoutLogs={workoutLogs} nutritionLogs={nutritionLogs} photos={photos} setSessions={setSessions} t={t} />}
@@ -1379,6 +1382,13 @@ function SessionEditor({ initial, onSave, onClose, customExercises, setCustomExe
   const addEx = ex => { setExercises(p => [...p, { ...ex, sets: 3, reps: "8-12", weight: "", restSeconds: "90" }]); setShowPicker(false); setSearch(""); };
   const updateEx = (idx, f, v) => setExercises(p => p.map((e, i) => i === idx ? { ...e, [f]: v } : e));
   const removeEx = idx => setExercises(p => p.filter((_, i) => i !== idx));
+  const moveEx = (idx, dir) => setExercises(p => {
+    const arr = [...p];
+    const swap = idx + dir;
+    if (swap < 0 || swap >= arr.length) return arr;
+    [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
+    return arr;
+  });
   const muscles = [...new Set(exercises.flatMap(e => e.muscles || []))];
 
   const filteredDB = {};
@@ -1428,8 +1438,14 @@ function SessionEditor({ initial, onSave, onClose, customExercises, setCustomExe
         {exercises.map((ex, idx) => (
           <div key={idx} style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 12, marginBottom: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7, alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>{ex.name}</div>
-              <div style={{ display: "flex", gap: 5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => moveEx(idx, -1)} disabled={idx === 0} style={{ background: "none", border: "none", color: idx === 0 ? "#333" : "#666", padding: "1px 4px", fontSize: 10, lineHeight: 1 }}>▲</button>
+                  <button onClick={() => moveEx(idx, 1)} disabled={idx === exercises.length - 1} style={{ background: "none", border: "none", color: idx === exercises.length - 1 ? "#333" : "#666", padding: "1px 4px", fontSize: 10, lineHeight: 1 }}>▼</button>
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.name}</div>
+              </div>
+              <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                 {!ex.isCustom && <button onClick={() => setShowDemo(ex)} style={{ background: "#1a1a24", border: "1px solid #252535", borderRadius: 6, padding: "4px 8px", color: "#e63c2f", fontSize: 11 }}>{t.howBtn}</button>}
                 <button onClick={() => removeEx(idx)} style={{ background: "none", border: "none", color: "#444", padding: 4 }}><Icon name="trash" size={14} /></button>
               </div>
@@ -1714,6 +1730,21 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
 
   const initLog = s => {
     const exs = s.exercises || [];
+    // Check for an in-progress draft
+    const draftKey = `log_draft_${s.id}`;
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (window.confirm("You have an unfinished session. Continue where you left off?")) {
+          setLogData(draft.logData); setSel(s); setSessionExercises(exs);
+          setSaved(false); setNotes(draft.notes || ""); setStarted(false); setElapsed(draft.elapsed || 0); setRestLog([]); setShowSummary(false); setSavedLog(null);
+          return;
+        } else {
+          sessionStorage.removeItem(draftKey);
+        }
+      }
+    } catch (_) {}
     const d = {};
     exs.forEach((ex, i) => {
       const numSets = +ex.sets || 3;
@@ -1741,6 +1772,14 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
       }));
     }
   };
+
+  // Auto-save draft to sessionStorage whenever logData or notes change
+  useEffect(() => {
+    if (!sel || saved) return;
+    try {
+      sessionStorage.setItem(`log_draft_${sel.id}`, JSON.stringify({ logData, notes, elapsed }));
+    } catch (_) {}
+  }, [logData, notes, elapsed, sel, saved]);
 
   const handleSetDone = (ei, si) => {
     setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, done: !s.done } : s) }));
@@ -1782,6 +1821,7 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
       notes, durationSeconds: elapsed,
     };
     setWorkoutLogs(p => [...p, logEntry]);
+    try { sessionStorage.removeItem(`log_draft_${sel.id}`); } catch (_) {}
     setSavedLog(logEntry);
     setSaved(true);
     clearInterval(timerRef.current);
@@ -2012,7 +2052,7 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   );
 }
 
-function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customExercises, profile, t }) {
+function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customExercises, profile, bodyWeightLogs, setBodyWeightLogs, t }) {
   const [selEx, setSelEx] = useState(null);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -2399,6 +2439,35 @@ Return ONLY a valid JSON array. No markdown, no commentary.`;
   const fieldUnit = f => f === "weight" ? "kg" : "";
   const hasEnoughData = workoutLogs.length >= 3 && exNames.length >= 2;
 
+  // Deload detection: 4+ consecutive weeks with 3+ sessions/week
+  const deloadWarning = (() => {
+    if (workoutLogs.length < 12) return false;
+    const weekBuckets = {};
+    workoutLogs.forEach(l => {
+      const d = new Date(l.date);
+      const week = `${d.getFullYear()}-${Math.floor((d - new Date(d.getFullYear(), 0, 1)) / 6048e5)}`;
+      weekBuckets[week] = (weekBuckets[week] || 0) + 1;
+    });
+    const weeks = Object.values(weekBuckets).slice(-6);
+    const busyWeeks = weeks.filter(c => c >= 3).length;
+    return busyWeeks >= 4;
+  })();
+
+  const [showBwInput, setShowBwInput] = useState(false);
+  const [bwInput, setBwInput] = useState("");
+  const todayBw = bodyWeightLogs.find(l => new Date(l.date).toDateString() === new Date().toDateString());
+  const logBodyWeight = () => {
+    const val = parseFloat(bwInput);
+    if (!val || val < 20 || val > 500) return;
+    const today = new Date().toDateString();
+    setBodyWeightLogs(prev => {
+      const filtered = prev.filter(l => new Date(l.date).toDateString() !== today);
+      return [...filtered, { date: new Date().toISOString(), weight: val }].sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
+    setBwInput("");
+    setShowBwInput(false);
+  };
+
   return (
     <div style={{ padding: 18 }} className="slide-in">
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 18 }}>{t.progressStats}</div>
@@ -2410,6 +2479,66 @@ Return ONLY a valid JSON array. No markdown, no commentary.`;
           </div>
         ))}
       </div>
+
+      {/* Deload warning */}
+      {deloadWarning && (
+        <div style={{ background: "#1a0f00", border: "1px solid #f5a62344", borderRadius: 14, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 10, letterSpacing: 2, color: "#f5a623", fontWeight: 700, textTransform: "uppercase", marginBottom: 4 }}>⚠️ Deload Week Recommended</div>
+          <div style={{ fontSize: 13, color: "#ccc", lineHeight: 1.6 }}>You've been training hard for 4+ consecutive weeks. A deload week (50% weight, same sets) will help your body recover and come back stronger.</div>
+        </div>
+      )}
+
+      {/* Body Weight Tracker */}
+      {(() => {
+        const bwData = bodyWeightLogs.slice(-12);
+        const bwMin = bwData.length > 0 ? Math.min(...bwData.map(l => l.weight)) : 0;
+        const bwMax = bwData.length > 0 ? Math.max(...bwData.map(l => l.weight)) : 0;
+        const bwRange = bwMax - bwMin || 1;
+        const bwFirst = bwData[0]?.weight;
+        const bwLast = bwData[bwData.length - 1]?.weight;
+        const bwDelta = bwData.length > 1 ? (bwLast - bwFirst).toFixed(1) : null;
+        return (
+          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 14, padding: "14px 16px", marginBottom: 22 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase" }}>Body Weight</div>
+                {bwLast && <div style={{ fontSize: 22, fontWeight: 800, marginTop: 2 }}>{bwLast} <span style={{ fontSize: 13, color: "#555" }}>kg</span></div>}
+                {bwDelta !== null && <div style={{ fontSize: 11, color: +bwDelta < 0 ? "#4ade80" : +bwDelta > 0 ? "#f5a623" : "#555", fontWeight: 700 }}>{+bwDelta > 0 ? "+" : ""}{bwDelta} kg total</div>}
+              </div>
+              <button onClick={() => { setBwInput(todayBw ? String(todayBw.weight) : ""); setShowBwInput(s => !s); }} className="gym-btn"
+                style={{ background: "#e63c2f1a", border: "1px solid #e63c2f33", borderRadius: 10, padding: "8px 14px", color: "#e63c2f", fontWeight: 700, fontSize: 13, minHeight: 40 }}>
+                {todayBw ? "Update" : "+ Log"}
+              </button>
+            </div>
+            {showBwInput && (
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <input type="number" value={bwInput} onChange={e => setBwInput(e.target.value)} placeholder="e.g. 82.5" autoFocus
+                  style={{ flex: 1, background: "#0a0a0f", border: "1px solid #2a2a3a", borderRadius: 10, padding: "10px 14px", color: "#e8e4dc", fontSize: 15, minHeight: 44 }} />
+                <button onClick={logBodyWeight} className="gym-btn"
+                  style={{ background: "#e63c2f", border: "none", borderRadius: 10, padding: "10px 18px", color: "#fff", fontWeight: 800, fontSize: 14, minHeight: 44 }}>Save</button>
+              </div>
+            )}
+            {bwData.length > 1 ? (
+              <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 44 }}>
+                {bwData.map((l, i) => {
+                  const pct = (l.weight - bwMin) / bwRange;
+                  const h = Math.max(4, Math.round(4 + pct * 40));
+                  return (
+                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                      <div style={{ width: "100%", background: "#e63c2f", borderRadius: 3, height: h, opacity: 0.5 + pct * 0.5 }} />
+                      <div style={{ fontSize: 7, color: "#444" }}>{new Date(l.date).toLocaleDateString(undefined, { month: "numeric", day: "numeric" })}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "#555", textAlign: "center", padding: "10px 0" }}>
+                {bwData.length === 0 ? "Log your weight daily to track progress" : "Log one more entry to see your trend"}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* AI Suggestions Panel */}
       {hasEnoughData && (
@@ -2971,6 +3100,55 @@ function NutritionTab({ nutritionLogs, setNutritionLogs, profile, workoutLogs, t
         </>
       )}
 
+      {/* Weekly summary */}
+      {(() => {
+        const days7 = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(); d.setDate(d.getDate() - i); return d.toDateString();
+        });
+        const weekDayLogs = days7.map(ds => nutritionLogs.filter(l => new Date(l.date).toDateString() === ds));
+        const daysLogged = weekDayLogs.filter(dl => dl.length > 0).length;
+        const avgProtein = daysLogged > 0 ? Math.round(weekDayLogs.reduce((s, dl) => s + dl.reduce((a, l) => a + (l.protein || 0), 0), 0) / daysLogged) : 0;
+        const avgCals = daysLogged > 0 ? Math.round(weekDayLogs.reduce((s, dl) => s + dl.reduce((a, l) => a + (l.calories || 0), 0), 0) / daysLogged) : 0;
+        const daysHitProtein = weekDayLogs.filter(dl => dl.reduce((s, l) => s + (l.protein || 0), 0) >= target).length;
+        if (daysLogged === 0) return null;
+        return (
+          <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 14, padding: "14px 16px", marginBottom: 14, marginTop: 4 }}>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 12 }}>This Week</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: avgProtein >= target ? "#4ade80" : "#e63c2f" }}>{avgProtein}g</div>
+                <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 3 }}>Avg Protein</div>
+                <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>target {target}g</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: "#f5a623" }}>{avgCals}</div>
+                <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 3 }}>Avg Kcal</div>
+                <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{daysLogged} days tracked</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: daysHitProtein >= 5 ? "#4ade80" : daysHitProtein >= 3 ? "#f5a623" : "#e63c2f" }}>{daysHitProtein}/7</div>
+                <div style={{ fontSize: 9, color: "#555", fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", marginTop: 3 }}>Protein Goal</div>
+                <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>days hit</div>
+              </div>
+            </div>
+            {/* Mini 7-day protein bar chart */}
+            <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 36, marginTop: 14 }}>
+              {[...days7].reverse().map((ds, i) => {
+                const dl = nutritionLogs.filter(l => new Date(l.date).toDateString() === ds);
+                const p = dl.reduce((s, l) => s + (l.protein || 0), 0);
+                const pct = Math.min(1, p / target);
+                const label = new Date(ds).toLocaleDateString(undefined, { weekday: "narrow" });
+                return (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    <div style={{ width: "100%", background: p >= target ? "#4ade8033" : "#1a1a24", borderRadius: 4, height: Math.max(3, Math.round(pct * 30)), border: p >= target ? "1px solid #4ade8066" : "none", alignSelf: "flex-end" }} />
+                    <div style={{ fontSize: 8, color: "#444", letterSpacing: 0.5 }}>{label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
       {/* Weekly heatmap */}
       <WeeklyHeatmap nutritionLogs={nutritionLogs} target={target} calTarget={calTarget} />
       {/* Food delete undo toast */}
@@ -3076,6 +3254,9 @@ function MyExercisesTab({ customExercises, setCustomExercises, t }) {
 function PhotosTab({ photos, setPhotos, t }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [selPhoto, setSelPhoto] = useState(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareA, setCompareA] = useState(null);
+  const [compareB, setCompareB] = useState(null);
   const fileRef = useRef();
 
   const handleUpload = e => {
@@ -3108,9 +3289,18 @@ function PhotosTab({ photos, setPhotos, t }) {
     <div style={{ padding: 18 }} className="slide-in">
       <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 5 }}>{t.progressPhotos}</div>
       <div style={{ color: "#555", fontSize: 12, marginBottom: 16 }}>{t.trackVisual}</div>
-      <button onClick={() => fileRef.current.click()} className="gym-btn" style={{ width: "100%", background: "#111", border: "2px dashed #252535", borderRadius: 13, padding: 22, color: "#555", fontWeight: 700, marginBottom: 18, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, minHeight: 90 }}>
-        <Icon name="camera" size={30} /><span>{t.uploadPhoto}</span><span style={{ fontSize: 11, fontWeight: 400 }}>{t.tapToChoose}</span>
-      </button>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+        <button onClick={() => fileRef.current.click()} className="gym-btn" style={{ flex: 1, background: "#111", border: "2px dashed #252535", borderRadius: 13, padding: 18, color: "#555", fontWeight: 700, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minHeight: 80 }}>
+          <Icon name="camera" size={24} /><span style={{ fontSize: 13 }}>{t.uploadPhoto}</span>
+        </button>
+        {photos.length >= 2 && (
+          <button onClick={() => { setCompareMode(true); setCompareA([...photos].reverse()[0]); setCompareB([...photos].reverse()[1]); }} className="gym-btn"
+            style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 13, padding: "18px 14px", color: "#888", fontWeight: 700, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minHeight: 80 }}>
+            <span style={{ fontSize: 20 }}>⟺</span>
+            <span>Compare</span>
+          </button>
+        )}
+      </div>
       <input ref={fileRef} type="file" accept="image/*" onChange={handleUpload} style={{ display: "none" }} />
       {photos.length === 0 ? <div style={{ textAlign: "center", color: "#555", fontSize: 13 }}>{t.noPhotos}</div> : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -3163,6 +3353,40 @@ function PhotosTab({ photos, setPhotos, t }) {
               </div>
             )}
             {selPhoto._error && <div style={{ color: "#e63c2f", fontSize: 14 }}>{selPhoto._error}</div>}
+          </div>
+        </div>
+      )}
+      {/* Before/After comparison modal */}
+      {compareMode && (
+        <div style={{ position: "fixed", inset: 0, background: "#0a0a0f", zIndex: 200, display: "flex", flexDirection: "column" }}>
+          <div style={{ flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 18px", borderBottom: "1px solid #1a1a24" }}>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>Before / After</div>
+            <button onClick={() => setCompareMode(false)} style={{ background: "none", border: "none", color: "#666" }}><Icon name="close" size={22} /></button>
+          </div>
+          <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+              {[{ label: "Before", val: compareA, set: setCompareA }, { label: "After", val: compareB, set: setCompareB }].map(({ label, val, set }) => (
+                <div key={label}>
+                  <div style={{ fontSize: 9, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, textAlign: "center" }}>{label}</div>
+                  {val && <img src={val.dataUrl} alt="" style={{ width: "100%", borderRadius: 10, aspectRatio: "3/4", objectFit: "cover" }} />}
+                  <div style={{ fontSize: 10, color: "#555", textAlign: "center", marginTop: 4 }}>{val ? new Date(val.date).toLocaleDateString() : "—"}</div>
+                  <select value={val?.id || ""} onChange={e => set(photos.find(p => p.id === +e.target.value) || null)}
+                    style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 8, padding: "8px 10px", color: "#e8e4dc", fontSize: 12, marginTop: 6 }}>
+                    <option value="">Select photo</option>
+                    {[...photos].reverse().map(p => (
+                      <option key={p.id} value={p.id}>{new Date(p.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" })}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+            {compareA && compareB && (
+              <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 12 }}>
+                <div style={{ fontSize: 10, color: "#555", textAlign: "center" }}>
+                  {Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5)} days between photos
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
