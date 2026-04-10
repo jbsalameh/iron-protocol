@@ -834,16 +834,47 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         if (changes.length === 0) return session;
         const newExercises = [...(session.exercises || [])];
         changes.forEach(c => {
-          if (newExercises[c.exIdx]) newExercises[c.exIdx] = { ...newExercises[c.exIdx], [c.field]: c.newVal };
+          if (!newExercises[c.exIdx]) return;
+          if (c.field === "replace") {
+            const found = KNOWN_EXERCISES[c.newVal.toLowerCase()];
+            newExercises[c.exIdx] = {
+              ...newExercises[c.exIdx],
+              name: found ? found.name : c.newVal,
+              ...(found ? { muscles: found.muscles, equipment: found.equipment } : {}),
+            };
+          } else {
+            newExercises[c.exIdx] = { ...newExercises[c.exIdx], [c.field]: c.newVal };
+          }
         });
         return { ...session, exercises: newExercises };
       }));
+      const weightChanges = accepted.filter(c => c.field === "weight");
+      if (weightChanges.length > 0) {
+        setWorkoutLogs(prev => {
+          const updated = prev.map(log => ({ ...log, exercises: log.exercises ? [...log.exercises] : [] }));
+          weightChanges.forEach(c => {
+            for (let i = updated.length - 1; i >= 0; i--) {
+              const exIdx = updated[i].exercises.findIndex(e => e.name === c.exName);
+              if (exIdx !== -1) {
+                updated[i] = {
+                  ...updated[i],
+                  exercises: updated[i].exercises.map((ex, ei) =>
+                    ei === exIdx ? { ...ex, sets: (ex.sets || []).map(s => ({ ...s, weight: c.newVal })) } : ex
+                  ),
+                };
+                break;
+              }
+            }
+          });
+          return updated;
+        });
+      }
     }
     setShowAutoSuggest(false);
     setAutoSuggestData(null);
   };
 
-  const fieldLabel = f => f === "weight" ? t.kg : f === "sets" ? t.sets : t.reps;
+  const fieldLabel = f => f === "weight" ? t.kg : f === "sets" ? t.sets : f === "replace" ? "Exercise" : t.reps;
   const fieldUnit = f => f === "weight" ? "kg" : "";
 
   const tabs = [
@@ -889,7 +920,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
       <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
         {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />}
         {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} customExercises={customExercises} t={t} />}
-        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} t={t} />}
+        {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} profile={profile} t={t} />}
         {tab === "nutrition" && <NutritionTab nutritionLogs={nutritionLogs} setNutritionLogs={setNutritionLogs} profile={profile} workoutLogs={workoutLogs} t={t} />}
         {tab === "photos" && <PhotosTab photos={photos} setPhotos={setPhotos} t={t} />}
         {tab === "ai" && <AICoachTab profile={profile} sessions={sessions} workoutLogs={workoutLogs} nutritionLogs={nutritionLogs} photos={photos} setSessions={setSessions} t={t} />}
@@ -1081,11 +1112,11 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExerci
   return (
     <div style={{ padding: 18 }} className="slide-in">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 800 }}>{t.trainingSessions}</div>
           <div style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{profile.daysPerWeek}×/{t.gymDays?.split("/")[0] || "week"} · {profile.minutesPerSession} min</div>
         </div>
-        <div style={{ display: "flex", gap: 7 }}>
+        <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
           <button onClick={() => {
             const hyroxExercises = [
               { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
@@ -1828,19 +1859,17 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
         paddingBottom: started ? 12 : 16,
         borderBottom: "1px solid #111",
       }}>
-        {/* Row: back ← · session name */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        {/* Row: back ← · session name · timer chip */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: (restTimer && started) ? 10 : 0 }}>
           <button onClick={() => { if (started && !saved) { if (!window.confirm("Quit session?")) return; } clearInterval(timerRef.current); setSel(null); }} style={{ background: "#1a1a24", border: "none", borderRadius: 7, padding: "5px 9px", color: "#888" }}>←</button>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 19, fontWeight: 800 }}>{sel.name}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 19, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sel.name}</div>
             <div style={{ color: "#555", fontSize: 12 }}>{new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
           </div>
-        </div>
-        {/* Elapsed timer — always shown, counts once started */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, background: started ? "#e63c2f12" : "#111", border: `1px solid ${started ? "#e63c2f33" : "#1a1a24"}`, borderRadius: 12, padding: "10px 18px", marginBottom: (restTimer && started) ? 10 : 0, transition: "background 0.4s, border-color 0.4s" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 28, fontWeight: 800, color: started ? "#e63c2f" : "#333", fontVariantNumeric: "tabular-nums", letterSpacing: 2, lineHeight: 1 }}>{fmtTime(elapsed)}</div>
-            <div style={{ fontSize: 9, color: started ? "#e63c2f88" : "#333", letterSpacing: 2, textTransform: "uppercase", marginTop: 3 }}>{started ? t.gymTime : t.startWorkout}</div>
+          {/* Compact timer chip inline with header */}
+          <div style={{ flexShrink: 0, background: started ? "#e63c2f12" : "#111", border: `1px solid ${started ? "#e63c2f33" : "#1a1a24"}`, borderRadius: 10, padding: "6px 12px", textAlign: "center", transition: "all 0.4s" }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: started ? "#e63c2f" : "#444", fontVariantNumeric: "tabular-nums", letterSpacing: 1 }}>{fmtTime(elapsed)}</div>
+            <div style={{ fontSize: 8, color: started ? "#e63c2f88" : "#444", letterSpacing: 1.5, textTransform: "uppercase" }}>{started ? t.gymTime : t.startWorkout}</div>
           </div>
         </div>
         {/* Rest banner lives here — scrolls with sticky header, never disappears */}
@@ -1983,7 +2012,7 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   );
 }
 
-function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customExercises, t }) {
+function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customExercises, profile, t }) {
   const [selEx, setSelEx] = useState(null);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -2220,47 +2249,81 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
   const generateSuggestions = async () => {
     setLoadingSuggestions(true);
     try {
-      // Build progress summary per exercise
+      const goalLabels = { muscle_gain: "Muscle Gain", fat_loss: "Fat Loss", strength: "Strength", endurance: "Endurance", maintenance: "Maintenance" };
+      const goalLabel = goalLabels[profile?.goal] || profile?.goal || "General Fitness";
+
+      // Per-exercise trend sorted by date
       const progressSummary = exNames.map(name => {
-        const data = exProgress[name].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const data = exProgress[name].slice().sort((a, b) => new Date(a.date) - new Date(b.date));
         const trend = data[data.length - 1].weight - data[0].weight;
-        const sessions_count = data.length;
-        return { name, startWeight: data[0].weight, currentWeight: data[data.length - 1].weight, trend, sessions: sessions_count };
+        const lastFour = data.slice(-4);
+        const plateau = lastFour.length >= 3 && lastFour.every(d => d.weight === lastFour[0].weight);
+        return { name, startWeight: data[0].weight, currentWeight: data[data.length - 1].weight, totalGain: trend, sessions: data.length, plateau, recentWeights: lastFour.map(d => ({ date: d.date.slice(0, 10), weight: d.weight })) };
       });
+
+      // Last 8 full session logs for context
+      const recentLogs = workoutLogs.slice(-8).map(log => ({
+        date: log.date.slice(0, 10),
+        session: log.sessionName,
+        exercises: (log.exercises || []).map(ex => ({
+          name: ex.name,
+          sets: (ex.sets || []).filter(s => s.done).map(s => ({ weight: s.weight, reps: s.reps })),
+        })).filter(ex => ex.sets.length > 0),
+      }));
 
       const sessionsSummary = sessions.map(s => ({
         id: s.id, name: s.name,
-        exercises: s.exercises?.map((e, i) => ({ idx: i, name: e.name, sets: e.sets, reps: e.reps, weight: e.weight }))
+        exercises: s.exercises?.map((e, i) => ({ idx: i, name: e.name, sets: e.sets, reps: e.reps, weight: e.weight, equipment: e.equipment }))
       }));
 
-      const prompt = `You are an expert personal trainer. Based on this progress data, suggest specific changes to the training program.
+      const prompt = `You are an elite personal trainer analyzing a client's real training data. Be direct, specific, and evidence-based.
 
-WORKOUT HISTORY (${workoutLogs.length} sessions over time):
+CLIENT PROFILE:
+- Goal: ${goalLabel}
+- Training frequency: ${profile?.daysPerWeek || "?"} days/week, ${profile?.minutesPerSession || "?"} min/session
+- Body weight: ${profile?.weight || "unknown"}kg
+
+RECENT SESSIONS (last ${recentLogs.length}):
+${JSON.stringify(recentLogs, null, 2)}
+
+EXERCISE PROGRESS TRENDS:
 ${JSON.stringify(progressSummary, null, 2)}
 
 CURRENT PROGRAM:
 ${JSON.stringify(sessionsSummary, null, 2)}
 
-Generate specific, actionable upgrade suggestions as a JSON array. Each suggestion must be one of:
-- Weight increase: if an exercise has been progressing well (3+ sessions, consistent gains)
-- Volume increase: add sets or adjust reps if plateau detected
-- Note: only suggest changes where there's clear data to support it
+TASK: Analyze whether this client is on track for their goal (${goalLabel}), then generate specific upgrade suggestions.
 
-Return ONLY a JSON array like:
-[
-  {
-    "sessionId": <number>,
-    "exIdx": <number>,
-    "field": "weight" | "sets" | "reps",
-    "newVal": "<new value as string>",
-    "reason": "<1 sentence why, referencing actual numbers>",
-    "priority": "high" | "medium"
-  }
-]
+Consider:
+1. Is the client progressing on key lifts? (weight going up over sessions)
+2. Which exercises are plateauing (same weight 3+ sessions)?
+3. Is the exercise selection optimal for "${goalLabel}"? Would replacing any exercise yield better results?
+4. Is volume (sets × reps) appropriate for the goal?
 
-Be conservative — only suggest weight increases of 2.5-5kg, only when there are 3+ sessions showing consistent performance at current weight. Return empty array [] if no clear upgrades are warranted yet.`;
+Return ONLY a JSON array of suggestions. Each item must be one of these types:
 
-      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation.", 4000, 0.1);
+Weight/volume change:
+{ "sessionId": <number>, "exIdx": <number>, "field": "weight" | "sets" | "reps", "newVal": "<value as string>", "reason": "<specific reason citing actual data and goal alignment>", "priority": "high" | "medium" }
+
+Exercise replacement (when a better option exists for the goal):
+{ "sessionId": <number>, "exIdx": <number>, "field": "replace", "newVal": "<exact exercise name from list below>", "reason": "<why this exercise is better for ${goalLabel} based on their current plateau/progress>", "priority": "high" | "medium" }
+
+AVAILABLE EXERCISES FOR REPLACEMENT:
+${AVAILABLE_EXERCISES}
+
+Rules:
+- Only suggest weight increase of 2.5–5kg if 3+ sessions show consistent performance at current weight
+- Suggest exercise replacement if: (a) stalled for 4+ sessions AND (b) a clearly superior option exists for the goal
+- For muscle_gain: favour compound lifts with 3–4 sets, 8–12 reps
+- For strength: favour compound lifts with 3–5 sets, 3–6 reps, bigger weight jumps
+- For fat_loss: favour higher reps, supersets, add cardio/conditioning exercises
+- For endurance: favour higher reps, conditioning, circuit-friendly exercises
+- If progress is genuinely good, return fewer or zero suggestions
+- Return [] if no clear upgrades are warranted
+
+Return ONLY a valid JSON array. No markdown, no commentary.`;
+
+      const response = await callAI([{ role: "user", content: prompt }], "You are a JSON generator. Output ONLY a valid JSON array. No markdown, no explanation.", 6000, 0.2);
       const parsed = extractJSON(response);
 
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -2289,19 +2352,50 @@ Be conservative — only suggest weight increases of 2.5-5kg, only when there ar
       if (changes.length === 0) return session;
       const newExercises = [...(session.exercises || [])];
       changes.forEach(c => {
-        if (newExercises[c.exIdx]) {
+        if (!newExercises[c.exIdx]) return;
+        if (c.field === "replace") {
+          const found = KNOWN_EXERCISES[c.newVal.toLowerCase()];
+          newExercises[c.exIdx] = {
+            ...newExercises[c.exIdx],
+            name: found ? found.name : c.newVal,
+            ...(found ? { muscles: found.muscles, equipment: found.equipment } : {}),
+          };
+        } else {
           newExercises[c.exIdx] = { ...newExercises[c.exIdx], [c.field]: c.newVal };
         }
       });
       return { ...session, exercises: newExercises };
     }));
 
+    // Update most recent log entry for each weight change so next session pre-fills correctly
+    const weightChanges = accepted.filter(c => c.field === "weight");
+    if (weightChanges.length > 0) {
+      setWorkoutLogs(prev => {
+        const updated = prev.map(log => ({ ...log, exercises: log.exercises ? [...log.exercises] : [] }));
+        weightChanges.forEach(c => {
+          for (let i = updated.length - 1; i >= 0; i--) {
+            const exIdx = updated[i].exercises.findIndex(e => e.name === c.exName);
+            if (exIdx !== -1) {
+              updated[i] = {
+                ...updated[i],
+                exercises: updated[i].exercises.map((ex, ei) =>
+                  ei === exIdx ? { ...ex, sets: (ex.sets || []).map(s => ({ ...s, weight: c.newVal })) } : ex
+                ),
+              };
+              break;
+            }
+          }
+        });
+        return updated;
+      });
+    }
+
     setShowChanges(false);
     setPendingChanges([]);
     setAiSuggestions("applied");
   };
 
-  const fieldLabel = f => f === "weight" ? t.kg : f === "sets" ? t.sets : t.reps;
+  const fieldLabel = f => f === "weight" ? t.kg : f === "sets" ? t.sets : f === "replace" ? "Exercise" : t.reps;
   const fieldUnit = f => f === "weight" ? "kg" : "";
   const hasEnoughData = workoutLogs.length >= 3 && exNames.length >= 2;
 
