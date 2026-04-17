@@ -1122,29 +1122,6 @@ function SessionsTab({ sessions, setSessions, profile, workoutLogs, customExerci
           <div style={{ color: "#555", fontSize: 12, marginTop: 2 }}>{profile.daysPerWeek}×/{t.gymDays?.split("/")[0] || "week"} · {profile.minutesPerSession} min</div>
         </div>
         <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
-          <button onClick={() => {
-            const hyroxExercises = [
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "SkiErg",            muscles: ["back","shoulders","core","triceps"], equipment: "machine", sets: 1, reps: "1000", weight: "0" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Sled Push",         muscles: ["quads","glutes","core"], equipment: "bodyweight", sets: 1, reps: "50", weight: "152" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Sled Pull",         muscles: ["back","glutes","hamstrings","core"], equipment: "bodyweight", sets: 1, reps: "50", weight: "103" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Burpee Broad Jumps",muscles: ["quads","chest","shoulders","core"], equipment: "bodyweight", sets: 1, reps: "80", weight: "0" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Rowing Machine",    muscles: ["back","legs","core"], equipment: "machine", sets: 1, reps: "1000", weight: "0" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Farmer's Walk",     muscles: ["forearms","traps","core"], equipment: "dumbbell", sets: 1, reps: "200", weight: "24" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Sandbag Lunges",    muscles: ["quads","glutes","core"], equipment: "bodyweight", sets: 1, reps: "100", weight: "20" },
-              { name: "Running",           muscles: ["quads","glutes","calves","core"], equipment: "bodyweight", sets: 1, reps: "1000", weight: "0" },
-              { name: "Wall Balls",        muscles: ["quads","glutes","shoulders","core"], equipment: "bodyweight", sets: 1, reps: "100", weight: "9" },
-            ];
-            setSessions(p => [...p, { id: Date.now(), name: "Hyrox Race Simulation", exercises: hyroxExercises }]);
-          }} className="gym-btn" style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 11, padding: "10px 13px", color: "#888", fontWeight: 700, fontSize: 13, minHeight: 44 }}>
-            🏁 {t.hyroxTemplate}
-          </button>
           <button onClick={() => setShowCreate(true)} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 11, padding: "10px 16px", color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", gap: 5, fontSize: 14, minHeight: 44 }}>
             <Icon name="plus" size={15} /> {t.newSession}
           </button>
@@ -2177,14 +2154,6 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
   const [logFilter, setLogFilter] = useState("all");
   const [pendingLogDelete, setPendingLogDelete] = useState(null);
 
-  // Reset the parent tab scroll when switching between the log list and the
-  // detail view. Without this, tapping a workout deep in the list leaves the
-  // scroller past the (shorter) detail view → blank screen with no back button.
-  useEffect(() => {
-    const scroller = document.querySelector('[data-tab-scroll]');
-    if (scroller) scroller.scrollTop = 0;
-  }, [selectedLog?.id, editingLog]);
-
   const total = workoutLogs.length;
   const week = workoutLogs.filter(l => new Date(l.date) > new Date(Date.now() - 7 * 864e5)).length;
   const month = workoutLogs.filter(l => new Date(l.date) > new Date(Date.now() - 30 * 864e5)).length;
@@ -2242,12 +2211,17 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
 
     if (editingLog && editLogData) {
       return (
-        <div style={{ padding: 18 }} className="slide-in">
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <div className="slide-in" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 40, display: "flex", flexDirection: "column" }}>
+          <div style={{
+            paddingTop: "max(16px, env(safe-area-inset-top, 16px))", paddingLeft: 18, paddingRight: 18, paddingBottom: 14,
+            background: "#0a0a0f", borderBottom: "1px solid #111",
+            display: "flex", alignItems: "center", gap: 10,
+          }}>
             <button onClick={() => { setEditingLog(false); setEditLogData(null); }} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: "10px 14px", color: "#e8e4dc", fontWeight: 700, fontSize: 13, minHeight: 44 }}>←</button>
             <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>{t.editLog}</div>
             <button onClick={saveEditLog} className="gym-btn" style={{ background: "#e63c2f", border: "none", borderRadius: 10, padding: "10px 14px", color: "#fff", fontWeight: 800, fontSize: 13, minHeight: 44 }}>{t.saveLog}</button>
           </div>
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "14px 18px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
           {editLogData.exercises.map((ex, ei) => {
             const fieldCfg = getExFieldConfig(ex);
             return (
@@ -2305,13 +2279,18 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
               }}
               onReplace={() => {}} onClose={() => setShowAddToLog(false)} t={t} />
           )}
+          </div>
         </div>
       );
     }
 
     return (
-      <div style={{ padding: 18 }} className="slide-in">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+      <div className="slide-in" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "#0a0a0f", zIndex: 40, display: "flex", flexDirection: "column" }}>
+        <div style={{
+          paddingTop: "max(16px, env(safe-area-inset-top, 16px))", paddingLeft: 18, paddingRight: 18, paddingBottom: 14,
+          background: "#0a0a0f", borderBottom: "1px solid #111",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
           <button onClick={() => setSelectedLog(null)} className="gym-btn" style={{ background: "#1a1a24", border: "none", borderRadius: 10, padding: "10px 14px", color: "#e8e4dc", fontWeight: 700, fontSize: 13, minHeight: 44 }}>
             ← {t.backToStats}
           </button>
@@ -2319,6 +2298,7 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
             ✏️ {t.editLog}
           </button>
         </div>
+        <div style={{ flex: 1, minHeight: 0, overflow: "auto", WebkitOverflowScrolling: "touch", padding: "16px 18px calc(24px + env(safe-area-inset-bottom, 0px))" }}>
 
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 22, fontWeight: 800 }}>{log.sessionName}</div>
@@ -2402,6 +2382,7 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
         <button onClick={() => deleteLog(log.id)} className="gym-btn" style={{ width: "100%", background: "#1a1a24", border: "1px solid #e63c2f33", borderRadius: 12, padding: "13px", fontWeight: 700, fontSize: 13, color: "#e63c2f", marginTop: 6, minHeight: 48 }}>
           <Icon name="trash" size={14} /> <span style={{ marginLeft: 6 }}>{t.deleteLog}</span>
         </button>
+        </div>
       </div>
     );
   }
