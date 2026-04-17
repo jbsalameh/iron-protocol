@@ -87,6 +87,7 @@ const T = {
     startWorkout: "Start Workout", workoutTimer: "Workout Timer", restTimer: "Rest Timer",
     restComplete: "Rest complete! Next set 💪", startRest: "Start Rest",
     skipRest: "Skip Rest", gymTime: "Gym Time", sessionSummary: "Session Summary",
+    coachTakeaway: "Coach's Take", coachAnalyzing: "Coach is reviewing your session…", coachRetry: "Retry analysis",
     totalTime: "Total Time", setsLogged: "Sets Logged", avgRest: "Avg Rest",
     viewSummary: "View Summary", closeSummary: "Done",
     replacePlan: "Replace current sessions", addToPlan: "Add to sessions",
@@ -174,6 +175,7 @@ const T = {
     startWorkout: "Démarrer", workoutTimer: "Chrono séance", restTimer: "Temps de repos",
     restComplete: "Repos terminé ! Prochaine série 💪", startRest: "Début repos",
     skipRest: "Passer", gymTime: "Temps en salle", sessionSummary: "Résumé",
+    coachTakeaway: "Avis du coach", coachAnalyzing: "Le coach analyse votre séance…", coachRetry: "Relancer l'analyse",
     totalTime: "Durée totale", setsLogged: "Séries", avgRest: "Repos moy.",
     viewSummary: "Voir résumé", closeSummary: "Terminer",
     replacePlan: "Remplacer les séances", addToPlan: "Ajouter aux séances",
@@ -920,7 +922,7 @@ Be conservative with weight increases (2.5-5kg). Return empty array [] if no upg
         </button>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
+      <div data-tab-scroll="true" style={{ flex: 1, minHeight: 0, overflow: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch", paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
         {tab === "sessions" && <SessionsTab sessions={sessions} setSessions={setSessions} profile={profile} workoutLogs={workoutLogs} customExercises={customExercises} setCustomExercises={setCustomExercises} t={t} />}
         {tab === "track" && <TrackTab sessions={sessions} setSessions={setSessions} workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} customExercises={customExercises} t={t} />}
         {tab === "stats" && <StatsTab workoutLogs={workoutLogs} setWorkoutLogs={setWorkoutLogs} sessions={sessions} setSessions={setSessions} customExercises={customExercises} profile={profile} bodyWeightLogs={bodyWeightLogs} setBodyWeightLogs={setBodyWeightLogs} t={t} />}
@@ -1667,6 +1669,8 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [savedLog, setSavedLog] = useState(null);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -1730,9 +1734,17 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
   };
 
   const resumeDraft = (s, draft) => {
-    const exs = s.exercises || [];
+    const exs = draft.sessionExercises || s.exercises || [];
     setLogData(draft.logData); setSel(s); setSessionExercises(exs);
-    setSaved(false); setNotes(draft.notes || ""); setStarted(false); setElapsed(draft.elapsed || 0); setRestLog([]); setShowSummary(false); setSavedLog(null);
+    setSaved(false); setNotes(draft.notes || "");
+    // Restore timer state. If the session was running, recompute elapsed from the wall-clock
+    // startTime so the timer picks up where it left off instead of restarting at zero.
+    const wasStarted = !!draft.started && !!draft.startTime;
+    setStarted(wasStarted);
+    setStartTime(wasStarted ? draft.startTime : null);
+    setElapsed(wasStarted ? Math.floor((Date.now() - draft.startTime) / 1000) : (draft.elapsed || 0));
+    setRpeData(draft.rpeData || {});
+    setRestLog([]); setShowSummary(false); setSavedLog(null);
     setPendingDraft(null);
   };
 
@@ -1776,13 +1788,17 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
     }
   };
 
-  // Auto-save draft to sessionStorage whenever logData or notes change
+  // Auto-save draft to sessionStorage whenever logData or notes change.
+  // Persist timer state (started + startTime) and rpeData so resuming a session
+  // after a tab switch or app close continues the clock instead of restarting it.
   useEffect(() => {
     if (!sel || saved) return;
     try {
-      sessionStorage.setItem(`log_draft_${sel.id}`, JSON.stringify({ logData, notes, elapsed }));
+      sessionStorage.setItem(`log_draft_${sel.id}`, JSON.stringify({
+        logData, notes, elapsed, started, startTime, rpeData, sessionExercises,
+      }));
     } catch (_) {}
-  }, [logData, notes, elapsed, sel, saved]);
+  }, [logData, notes, elapsed, sel, saved, started, startTime, rpeData, sessionExercises]);
 
   const handleSetDone = (ei, si) => {
     setLogData(d => ({ ...d, [ei]: d[ei].map((s, i) => i === si ? { ...s, done: !s.done } : s) }));
@@ -1829,6 +1845,61 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
     setSaved(true);
     clearInterval(timerRef.current);
     setShowSummary(true);
+    generateAISummary(logEntry);
+  };
+
+  // Look up the most recent previous log of the same session to compare against.
+  const getPreviousSessionLog = (sessionId, excludeId) => {
+    for (let i = workoutLogs.length - 1; i >= 0; i--) {
+      const l = workoutLogs[i];
+      if (l.id !== excludeId && l.sessionId === sessionId) return l;
+    }
+    return null;
+  };
+
+  const generateAISummary = async (log) => {
+    setAiSummaryLoading(true);
+    setAiSummary(null);
+    try {
+      const exBreakdown = (log.exercises || []).map((ex, ei) => {
+        const rpe = rpeData[ei] || {};
+        const sets = (ex.sets || []).map((s, si) => ({
+          weight: s.weight || null,
+          reps: s.reps || null,
+          rpe: rpe[si] || null,
+          done: !!s.done,
+        }));
+        return { name: ex.name, equipment: ex.equipment, sets };
+      });
+      const prev = getPreviousSessionLog(log.sessionId, log.id);
+      const prevSummary = prev ? prev.exercises?.map(ex => ({
+        name: ex.name,
+        sets: (ex.sets || []).filter(s => s.done).map(s => ({ weight: s.weight, reps: s.reps })),
+      })) : null;
+
+      const prompt = `The athlete just finished a session. Give a brief, direct assessment in 3-5 sentences. Cover: (1) what went well with specific numbers, (2) one concrete thing to adjust next session based on RPE/volume, (3) whether they should progress, hold, or deload a specific lift. No generic praise, no bullet lists, no markdown headers — just tight coaching prose.
+
+THIS SESSION:
+Name: ${log.sessionName}
+Duration: ${Math.round((log.durationSeconds || 0) / 60)} min
+Exercises:
+${JSON.stringify(exBreakdown, null, 2)}
+
+${prevSummary ? `PREVIOUS ${log.sessionName} SESSION (for progression comparison):
+${JSON.stringify(prevSummary, null, 2)}` : "No prior log of this session — this is the baseline."}`;
+
+      const text = await callAI(
+        [{ role: "user", content: prompt }],
+        "You are an elite, direct strength coach talking to an athlete in second person. Be specific with weights, reps, and RPE. Keep it under 120 words.",
+        500,
+        0.7,
+      );
+      setAiSummary(text.trim());
+    } catch (e) {
+      setAiSummary({ error: true, message: e.message || "Could not generate summary" });
+    } finally {
+      setAiSummaryLoading(false);
+    }
   };
 
   // ─── Session select screen ───────────────────────────────────────────
@@ -1903,6 +1974,27 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
               </div>
             );
           })}
+        </div>
+        {/* AI coach takeaway */}
+        <div style={{ background: "#111", border: "1px solid #e63c2f33", borderRadius: 13, padding: "14px 16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span>🧠</span><span>{t.coachTakeaway}</span>
+          </div>
+          {aiSummaryLoading && (
+            <div style={{ fontSize: 13, color: "#888", fontStyle: "italic" }}>{t.coachAnalyzing}</div>
+          )}
+          {!aiSummaryLoading && aiSummary && typeof aiSummary === "string" && (
+            <div style={{ fontSize: 14, color: "#e8e4dc", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{aiSummary}</div>
+          )}
+          {!aiSummaryLoading && aiSummary && aiSummary.error && (
+            <div>
+              <div style={{ fontSize: 13, color: "#888", marginBottom: 10 }}>{aiSummary.message}</div>
+              <button onClick={() => generateAISummary(savedLog)} className="gym-btn"
+                style={{ background: "#1a1a24", border: "1px solid #e63c2f33", borderRadius: 10, padding: "8px 12px", color: "#e63c2f", fontWeight: 700, fontSize: 12, minHeight: 36 }}>
+                {t.coachRetry}
+              </button>
+            </div>
+          )}
         </div>
         <button onClick={() => setSel(null)} className="gym-btn" style={{ width: "100%", background: "#e63c2f", border: "none", borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 16, color: "#fff", minHeight: 52 }}>{t.closeSummary}</button>
       </div>
@@ -2084,6 +2176,14 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
   const [showAddToLog, setShowAddToLog] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
   const [pendingLogDelete, setPendingLogDelete] = useState(null);
+
+  // Reset the parent tab scroll when switching between the log list and the
+  // detail view. Without this, tapping a workout deep in the list leaves the
+  // scroller past the (shorter) detail view → blank screen with no back button.
+  useEffect(() => {
+    const scroller = document.querySelector('[data-tab-scroll]');
+    if (scroller) scroller.scrollTop = 0;
+  }, [selectedLog?.id, editingLog]);
 
   const total = workoutLogs.length;
   const week = workoutLogs.filter(l => new Date(l.date) > new Date(Date.now() - 7 * 864e5)).length;
