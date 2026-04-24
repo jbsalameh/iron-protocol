@@ -51,9 +51,17 @@ export default async function handler(req, res) {
   if (!GEMINI_KEY) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
 
   // ─── Input size guard ────────────────────────────────────────────────────
+  // Image requests are much larger (base64-encoded photos) — allow up to ~4MB.
+  // Text-only requests stay locked at 20KB to prevent prompt-injection abuse.
   const bodyStr = JSON.stringify(req.body || {});
-  if (bodyStr.length > 20000) {
-    return res.status(413).json({ error: "Request too large. Please shorten your message." });
+  const hasImage = !!req.body?.image;
+  const maxBodySize = hasImage ? 4 * 1024 * 1024 : 20000;
+  if (bodyStr.length > maxBodySize) {
+    return res.status(413).json({
+      error: hasImage
+        ? "Image too large. Please try a smaller photo."
+        : "Request too large. Please shorten your message.",
+    });
   }
   // Cap maxTokens to prevent runaway responses
   if (req.body?.maxTokens && req.body.maxTokens > 2000) {

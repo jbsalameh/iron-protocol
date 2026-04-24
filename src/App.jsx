@@ -550,6 +550,38 @@ async function callAIVision(base64, mediaType, prompt) {
   return data.text || "";
 }
 
+// Downscale an uploaded image to a sane max dimension and re-encode as JPEG.
+// Keeps vision API payloads under the 4MB server cap and prevents localStorage blow-ups.
+function downscaleImage(file, maxDim = 1280, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read file"));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("Could not decode image"));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxDim / Math.max(width, height));
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          resolve(dataUrl);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function load(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
 function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 
@@ -2153,6 +2185,8 @@ function StatsTab({ workoutLogs, setWorkoutLogs, sessions, setSessions, customEx
   const [showAddToLog, setShowAddToLog] = useState(false);
   const [logFilter, setLogFilter] = useState("all");
   const [pendingLogDelete, setPendingLogDelete] = useState(null);
+  const [showBwInput, setShowBwInput] = useState(false);
+  const [bwInput, setBwInput] = useState("");
 
   const total = workoutLogs.length;
   const week = workoutLogs.filter(l => new Date(l.date) > new Date(Date.now() - 7 * 864e5)).length;
@@ -2554,8 +2588,6 @@ Return ONLY a valid JSON array. No markdown, no commentary.`;
     return busyWeeks >= 4;
   })();
 
-  const [showBwInput, setShowBwInput] = useState(false);
-  const [bwInput, setBwInput] = useState("");
   const todayBw = bodyWeightLogs.find(l => new Date(l.date).toDateString() === new Date().toDateString());
   const logBodyWeight = () => {
     const val = parseFloat(bwInput);
@@ -2699,7 +2731,9 @@ Return ONLY a valid JSON array. No markdown, no commentary.`;
             const completedSets = log.exercises?.reduce((s, ex) => s + (ex.sets?.filter(st => st.done)?.length || 0), 0) || 0;
             const totalSets = log.exercises?.reduce((s, ex) => s + (ex.sets?.length || 0), 0) || 0;
             return (
-              <button key={log.id} onClick={() => setSelectedLog(log)} className="gym-btn" style={{ width: "100%", background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "14px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#e8e4dc", minHeight: 64, textAlign: "left" }}>
+              <div key={log.id} role="button" tabIndex={0} onClick={() => setSelectedLog(log)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedLog(log); } }}
+                className="gym-btn" style={{ width: "100%", background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: "14px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#e8e4dc", minHeight: 64, textAlign: "left", cursor: "pointer" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{log.sessionName}</div>
                   <div style={{ color: "#555", fontSize: 12, marginTop: 3 }}>
@@ -2710,7 +2744,7 @@ Return ONLY a valid JSON array. No markdown, no commentary.`;
                   <button onClick={(e) => { e.stopPropagation(); deleteLog(log.id); }} style={{ background: "none", border: "none", color: "#333", padding: 6 }}><Icon name="trash" size={14} /></button>
                   <span style={{ color: "#444" }}><Icon name="arrow" size={16} /></span>
                 </div>
-              </button>
+              </div>
             );
           })}
           {/* Undo toast */}
@@ -3360,12 +3394,18 @@ function PhotosTab({ photos, setPhotos, t }) {
   const [compareB, setCompareB] = useState(null);
   const fileRef = useRef();
 
-  const handleUpload = e => {
+  const handleUpload = async e => {
     const file = e.target.files[0]; if (!file) return;
-    const r = new FileReader();
-    r.onload = ev => setPhotos(p => [...p, { id: Date.now(), date: new Date().toISOString(), dataUrl: ev.target.result, analyses: [] }]);
-    r.readAsDataURL(file);
     e.target.value = "";
+    try {
+      const dataUrl = await downscaleImage(file, 1280, 0.82);
+      setPhotos(p => [...p, { id: Date.now(), date: new Date().toISOString(), dataUrl, analyses: [] }]);
+    } catch (err) {
+      // Fallback: store original if canvas re-encode fails
+      const r = new FileReader();
+      r.onload = ev => setPhotos(p => [...p, { id: Date.now(), date: new Date().toISOString(), dataUrl: ev.target.result, analyses: [] }]);
+      r.readAsDataURL(file);
+    }
   };
 
   const analyzePhoto = async (photo) => {
