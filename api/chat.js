@@ -54,7 +54,7 @@ export default async function handler(req, res) {
   // Image requests are much larger (base64-encoded photos) — allow up to ~4MB.
   // Text-only requests stay locked at 20KB to prevent prompt-injection abuse.
   const bodyStr = JSON.stringify(req.body || {});
-  const hasImage = !!req.body?.image;
+  const hasImage = !!req.body?.image || (Array.isArray(req.body?.images) && req.body.images.length > 0);
   const maxBodySize = hasImage ? 4 * 1024 * 1024 : 20000;
   if (bodyStr.length > maxBodySize) {
     return res.status(413).json({
@@ -82,11 +82,18 @@ export default async function handler(req, res) {
   res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
-    const { messages, system, maxTokens, temperature, image, mediaType, prompt } = req.body;
+    const { messages, system, maxTokens, temperature, image, images, mediaType, prompt } = req.body;
 
     let contents = [];
 
-    if (image) {
+    if (Array.isArray(images) && images.length > 0) {
+      // Multi-image request (e.g. before/after comparison)
+      const parts = images
+        .filter((img) => img && img.data && img.mediaType)
+        .map((img) => ({ inlineData: { mimeType: img.mediaType, data: img.data } }));
+      parts.push({ text: prompt || "Describe these images." });
+      contents.push({ role: "user", parts });
+    } else if (image) {
       contents.push({
         role: "user",
         parts: [

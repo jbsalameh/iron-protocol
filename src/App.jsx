@@ -55,6 +55,7 @@ const T = {
     uploadPhoto: "Upload Progress Photo", tapToChoose: "Tap to choose from gallery",
     noPhotos: "No photos yet", tapAnalyze: "Tap to analyze", aiAnalysis: "AI Analysis",
     analyzingPhoto: "Analyzing...",
+    compareProgress: "Analyze Progress", comparingProgress: "Comparing photos…", progressComparison: "Progress Comparison", pickBothPhotos: "Pick both photos to compare",
     sessionName: "Session Name", sessionMuscles: "Session Muscles", exercisesLabel: "Exercises",
     addExercise: "Add", saveSession: "Save Session", addExerciseTitle: "Add Exercise",
     editSession: "Edit Session", newSessionTitle: "New Session",
@@ -143,6 +144,7 @@ const T = {
     uploadPhoto: "Ajouter une photo", tapToChoose: "Appuyez pour choisir",
     noPhotos: "Aucune photo", tapAnalyze: "Analyser", aiAnalysis: "Analyse IA",
     analyzingPhoto: "Analyse...",
+    compareProgress: "Analyser les progrès", comparingProgress: "Comparaison en cours…", progressComparison: "Comparaison de progrès", pickBothPhotos: "Choisissez deux photos à comparer",
     sessionName: "Nom de la séance", sessionMuscles: "Muscles de la séance", exercisesLabel: "Exercices",
     addExercise: "Ajouter", saveSession: "Enregistrer la séance", addExerciseTitle: "Ajouter un exercice",
     editSession: "Modifier la séance", newSessionTitle: "Nouvelle séance",
@@ -539,6 +541,29 @@ async function callAIVision(base64, mediaType, prompt) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ image: base64, mediaType, prompt }),
+  });
+  const data = await response.json();
+  if (data.remaining !== undefined) {
+    try { localStorage.setItem("ai_remaining", data.remaining); } catch {}
+  }
+  if (!response.ok) {
+    throw new Error(data.error || `API error ${response.status}`);
+  }
+  return data.text || "";
+}
+
+// Multi-image variant — used for before/after comparisons.
+// `images` is [{ dataUrl }]; this splits each into base64 + mediaType for the server.
+async function callAIVisionMulti(images, prompt) {
+  const payload = images.map((img) => {
+    const data = img.dataUrl.split(",")[1];
+    const mediaType = img.dataUrl.split(";")[0].split(":")[1];
+    return { data, mediaType };
+  });
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ images: payload, prompt }),
   });
   const data = await response.json();
   if (data.remaining !== undefined) {
@@ -3392,7 +3417,32 @@ function PhotosTab({ photos, setPhotos, t }) {
   const [compareMode, setCompareMode] = useState(false);
   const [compareA, setCompareA] = useState(null);
   const [compareB, setCompareB] = useState(null);
+  const [compareAnalysis, setCompareAnalysis] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState(null);
   const fileRef = useRef();
+
+  // Reset comparison result when the user picks different photos or closes the modal.
+  useEffect(() => {
+    setCompareAnalysis(null);
+    setCompareError(null);
+  }, [compareA?.id, compareB?.id, compareMode]);
+
+  const analyzeComparison = async () => {
+    if (!compareA || !compareB) return;
+    setCompareLoading(true);
+    setCompareError(null);
+    setCompareAnalysis(null);
+    try {
+      const days = Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5);
+      const prompt = `You are reviewing two progress photos taken ${days} days apart. The first image is "before", the second is "after". Give a direct, specific comparison in 4-6 sentences. Call out: visible changes in muscle size/definition, body composition shifts, posture, and one clear focus area going forward. Be honest — if changes are minimal, say so. No fluff, no hedging.`;
+      const text = await callAIVisionMulti([compareA, compareB], prompt);
+      setCompareAnalysis(text.trim());
+    } catch (e) {
+      setCompareError(e.message || "Comparison failed. Please try again.");
+    }
+    setCompareLoading(false);
+  };
 
   const handleUpload = async e => {
     const file = e.target.files[0]; if (!file) return;
@@ -3521,12 +3571,31 @@ function PhotosTab({ photos, setPhotos, t }) {
                 </div>
               ))}
             </div>
-            {compareA && compareB && (
-              <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 12 }}>
-                <div style={{ fontSize: 10, color: "#555", textAlign: "center" }}>
-                  {Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5)} days between photos
+            {compareA && compareB ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 12 }}>
+                  <div style={{ fontSize: 10, color: "#555", textAlign: "center" }}>
+                    {Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5)} days between photos
+                  </div>
                 </div>
+                <button onClick={analyzeComparison} disabled={compareLoading} className="gym-btn"
+                  style={{ width: "100%", background: compareLoading ? "#111" : "#e63c2f1a", border: `1px solid ${compareLoading ? "#1a1a24" : "#e63c2f44"}`, borderRadius: 11, padding: "12px", fontWeight: 700, fontSize: 14, color: compareLoading ? "#555" : "#e63c2f", minHeight: 48 }}>
+                  {compareLoading ? <span className="pulse">🔍 {t.comparingProgress}</span> : `🔍 ${t.compareProgress}`}
+                </button>
+                {compareError && (
+                  <div style={{ background: "#e63c2f1a", border: "1px solid #e63c2f44", borderRadius: 11, padding: 12, color: "#e63c2f", fontSize: 13 }}>
+                    {compareError}
+                  </div>
+                )}
+                {compareAnalysis && (
+                  <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 13, padding: 14 }}>
+                    <div style={{ fontSize: 10, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 10 }}>{t.progressComparison}</div>
+                    <div style={{ fontSize: 13, color: "#e8e4dc", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{compareAnalysis}</div>
+                  </div>
+                )}
               </div>
+            ) : (
+              <div style={{ textAlign: "center", color: "#555", fontSize: 12, padding: 8 }}>{t.pickBothPhotos}</div>
             )}
           </div>
         </div>
