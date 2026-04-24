@@ -610,6 +610,60 @@ function downscaleImage(file, maxDim = 1280, quality = 0.82) {
 function load(key, def) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; } }
 function save(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
 
+// ─── IndexedDB for photos ───────────────────────────────────────────────
+// localStorage has a ~5MB origin cap — base64 photos blow through that after a
+// handful of uploads and saves silently fail. Photos now live in IndexedDB,
+// which has no meaningful size limit for this use case.
+const PHOTO_DB = { name: "iron-protocol-db", version: 1, store: "photos" };
+
+function openPhotoDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PHOTO_DB.name, PHOTO_DB.version);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(PHOTO_DB.store)) {
+        db.createObjectStore(PHOTO_DB.store, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGetAllPhotos() {
+  try {
+    const db = await openPhotoDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(PHOTO_DB.store, "readonly");
+      const req = tx.objectStore(PHOTO_DB.store).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function idbPutPhoto(photo) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_DB.store, "readwrite");
+    tx.objectStore(PHOTO_DB.store).put(photo);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbDeletePhoto(id) {
+  const db = await openPhotoDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(PHOTO_DB.store, "readwrite");
+    tx.objectStore(PHOTO_DB.store).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 function MuscleMap({ muscles = [], size = 120 }) {
   const allMuscleIds = new Set();
   muscles.forEach(m => {
@@ -771,7 +825,9 @@ export default function GymTracker() {
   const [sessions, setSessions] = useState(() => load(STORAGE_KEYS.sessions, []));
   const [workoutLogs, setWorkoutLogs] = useState(() => load(STORAGE_KEYS.workoutLogs, []));
   const [nutritionLogs, setNutritionLogs] = useState(() => load(STORAGE_KEYS.nutritionLogs, []));
-  const [photos, setPhotos] = useState(() => load(STORAGE_KEYS.photos, []));
+  const [photos, setPhotos] = useState([]);
+  const [photosLoaded, setPhotosLoaded] = useState(false);
+  const prevPhotosRef = useRef([]);
   const [customExercises, setCustomExercises] = useState(() => load(STORAGE_KEYS.customExercises, []));
   const [bodyWeightLogs, setBodyWeightLogs] = useState(() => load(STORAGE_KEYS.bodyWeightLogs, []));
   const [showProfileSetup, setShowProfileSetup] = useState(!profile.name);
@@ -786,7 +842,53 @@ export default function GymTracker() {
   useEffect(() => { save(STORAGE_KEYS.sessions, sessions); }, [sessions]);
   useEffect(() => { save(STORAGE_KEYS.workoutLogs, workoutLogs); }, [workoutLogs]);
   useEffect(() => { save(STORAGE_KEYS.nutritionLogs, nutritionLogs); }, [nutritionLogs]);
-  useEffect(() => { save(STORAGE_KEYS.photos, photos); }, [photos]);
+
+  // Load photos from IndexedDB on mount; migrate any legacy localStorage photos over
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let list = await idbGetAllPhotos();
+      const legacy = load(STORAGE_KEYS.photos, []);
+      if (legacy.length > 0) {
+        for (const p of legacy) {
+          try { await idbPutPhoto(p); } catch {}
+        }
+        try { localStorage.removeItem(STORAGE_KEYS.photos); } catch {}
+        list = await idbGetAllPhotos();
+      }
+      list.sort((a, b) => new Date(a.date) - new Date(b.date));
+      if (cancelled) return;
+      prevPhotosRef.current = list;
+      setPhotos(list);
+      setPhotosLoaded(true);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Sync photo diffs to IndexedDB (skip until initial load completes)
+  useEffect(() => {
+    if (!photosLoaded) return;
+    const prev = prevPhotosRef.current;
+    const prevMap = new Map(prev.map((p) => [p.id, p]));
+    const currIds = new Set(photos.map((p) => p.id));
+    (async () => {
+      try {
+        for (const p of photos) {
+          const old = prevMap.get(p.id);
+          if (!old || JSON.stringify(old) !== JSON.stringify(p)) {
+            await idbPutPhoto(p);
+          }
+        }
+        for (const p of prev) {
+          if (!currIds.has(p.id)) await idbDeletePhoto(p.id);
+        }
+        prevPhotosRef.current = photos;
+      } catch (e) {
+        console.error("Photo sync failed:", e);
+      }
+    })();
+  }, [photos, photosLoaded]);
+
   useEffect(() => { save(STORAGE_KEYS.customExercises, customExercises); }, [customExercises]);
   useEffect(() => { save(STORAGE_KEYS.bodyWeightLogs, bodyWeightLogs); }, [bodyWeightLogs]);
 
