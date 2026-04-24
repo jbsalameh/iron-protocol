@@ -553,13 +553,16 @@ async function callAIVision(base64, mediaType, prompt) {
 }
 
 // Multi-image variant — used for before/after comparisons.
-// `images` is [{ dataUrl }]; this splits each into base64 + mediaType for the server.
+// `images` is [{ dataUrl }]; each is re-downscaled before sending to keep the
+// combined payload well under the 4MB server cap (legacy photos can be 5-10MB each).
 async function callAIVisionMulti(images, prompt) {
-  const payload = images.map((img) => {
-    const data = img.dataUrl.split(",")[1];
-    const mediaType = img.dataUrl.split(";")[0].split(":")[1];
-    return { data, mediaType };
-  });
+  const resized = await Promise.all(
+    images.map((img) => downscaleDataUrl(img.dataUrl, 1024, 0.75))
+  );
+  const payload = resized.map((dataUrl) => ({
+    data: dataUrl.split(",")[1],
+    mediaType: dataUrl.split(";")[0].split(":")[1],
+  }));
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -573,6 +576,32 @@ async function callAIVisionMulti(images, prompt) {
     throw new Error(data.error || `API error ${response.status}`);
   }
   return data.text || "";
+}
+
+// Re-downscale an existing dataUrl (e.g. a legacy full-res photo from storage)
+// so vision API requests stay under the server's body-size cap.
+function downscaleDataUrl(dataUrl, maxDim = 1024, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = () => reject(new Error("Could not decode image"));
+    img.onload = () => {
+      let { width, height } = img;
+      const scale = Math.min(1, maxDim / Math.max(width, height));
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+      try {
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      } catch (e) {
+        reject(e);
+      }
+    };
+    img.src = dataUrl;
+  });
 }
 
 // Downscale an uploaded image to a sane max dimension and re-encode as JPEG.
@@ -3536,9 +3565,13 @@ function PhotosTab({ photos, setPhotos, t }) {
     setCompareError(null);
     setCompareAnalysis(null);
     try {
-      const days = Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5);
+      // Always order by date so the AI gets the actual "before" first, "after" second.
+      const [before, after] = [compareA, compareB].sort(
+        (a, b) => new Date(a.date) - new Date(b.date)
+      );
+      const days = Math.round((new Date(after.date) - new Date(before.date)) / 864e5);
       const prompt = `You are reviewing two progress photos taken ${days} days apart. The first image is "before", the second is "after". Give a direct, specific comparison in 4-6 sentences. Call out: visible changes in muscle size/definition, body composition shifts, posture, and one clear focus area going forward. Be honest — if changes are minimal, say so. No fluff, no hedging.`;
-      const text = await callAIVisionMulti([compareA, compareB], prompt);
+      const text = await callAIVisionMulti([before, after], prompt);
       setCompareAnalysis(text.trim());
     } catch (e) {
       setCompareError(e.message || "Comparison failed. Please try again.");
@@ -3564,7 +3597,9 @@ function PhotosTab({ photos, setPhotos, t }) {
     setAnalyzing(true);
     const updated = { ...photo };
     try {
-      const base64 = photo.dataUrl.split(",")[1], mediaType = photo.dataUrl.split(";")[0].split(":")[1];
+      // Always re-downscale before sending — legacy photos can be huge.
+      const small = await downscaleDataUrl(photo.dataUrl, 1024, 0.8);
+      const base64 = small.split(",")[1], mediaType = small.split(";")[0].split(":")[1];
       const result = await callAIVision(base64, mediaType, "Analyze this gym progress photo in 3-4 sentences max. Note: visible muscle development, posture, strongest areas, one key area to improve, one specific recommendation. Be direct and concise.");
       const analysis = { date: new Date().toISOString(), text: result };
       updated.analyses = [...(photo.analyses || []), analysis];
@@ -3587,7 +3622,13 @@ function PhotosTab({ photos, setPhotos, t }) {
           <Icon name="camera" size={24} /><span style={{ fontSize: 13 }}>{t.uploadPhoto}</span>
         </button>
         {photos.length >= 2 && (
-          <button onClick={() => { setCompareMode(true); setCompareA([...photos].reverse()[0]); setCompareB([...photos].reverse()[1]); }} className="gym-btn"
+          <button onClick={() => {
+              // Default to the oldest and newest photos — true "before / after"
+              const sorted = [...photos].sort((a, b) => new Date(a.date) - new Date(b.date));
+              setCompareMode(true);
+              setCompareA(sorted[0]);
+              setCompareB(sorted[sorted.length - 1]);
+            }} className="gym-btn"
             style={{ background: "#1a1a24", border: "1px solid #2a2a3a", borderRadius: 13, padding: "18px 14px", color: "#888", fontWeight: 700, fontSize: 13, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minHeight: 80 }}>
             <span style={{ fontSize: 20 }}>⟺</span>
             <span>Compare</span>
@@ -3658,26 +3699,41 @@ function PhotosTab({ photos, setPhotos, t }) {
           </div>
           <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-              {[{ label: "Before", val: compareA, set: setCompareA }, { label: "After", val: compareB, set: setCompareB }].map(({ label, val, set }) => (
-                <div key={label}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, color: "#e63c2f", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, textAlign: "center" }}>{label}</div>
-                  {val && <img src={val.dataUrl} alt="" style={{ width: "100%", borderRadius: 10, aspectRatio: "3/4", objectFit: "cover" }} />}
-                  <div style={{ fontSize: 10, color: "#555", textAlign: "center", marginTop: 4 }}>{val ? new Date(val.date).toLocaleDateString() : "—"}</div>
-                  <select value={val?.id || ""} onChange={e => set(photos.find(p => p.id === +e.target.value) || null)}
-                    style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 8, padding: "8px 10px", color: "#e8e4dc", fontSize: 12, marginTop: 6 }}>
-                    <option value="">Select photo</option>
-                    {[...photos].reverse().map(p => (
-                      <option key={p.id} value={p.id}>{new Date(p.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" })}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
+              {[
+                { slot: "A", val: compareA, set: setCompareA },
+                { slot: "B", val: compareB, set: setCompareB },
+              ].map(({ slot, val, set }) => {
+                // Label each column automatically: whichever photo has the earlier date
+                // is "Before", the other is "After". Blank until both photos are picked.
+                let label = "";
+                if (compareA && compareB) {
+                  const aIsBefore = new Date(compareA.date) <= new Date(compareB.date);
+                  const isBefore = slot === "A" ? aIsBefore : !aIsBefore;
+                  label = isBefore ? "Before" : "After";
+                }
+                return (
+                  <div key={slot}>
+                    <div style={{ fontSize: 9, letterSpacing: 2, color: label ? "#e63c2f" : "#444", fontWeight: 700, textTransform: "uppercase", marginBottom: 6, textAlign: "center", minHeight: 13 }}>
+                      {label || "·"}
+                    </div>
+                    {val && <img src={val.dataUrl} alt="" style={{ width: "100%", borderRadius: 10, aspectRatio: "3/4", objectFit: "cover" }} />}
+                    <div style={{ fontSize: 10, color: "#555", textAlign: "center", marginTop: 4 }}>{val ? new Date(val.date).toLocaleDateString() : "—"}</div>
+                    <select value={val?.id || ""} onChange={e => set(photos.find(p => p.id === +e.target.value) || null)}
+                      style={{ width: "100%", background: "#111", border: "1px solid #2a2a3a", borderRadius: 8, padding: "8px 10px", color: "#e8e4dc", fontSize: 12, marginTop: 6 }}>
+                      <option value="">Select photo</option>
+                      {[...photos].reverse().map(p => (
+                        <option key={p.id} value={p.id}>{new Date(p.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" })}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
             </div>
             {compareA && compareB ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ background: "#111", border: "1px solid #1a1a24", borderRadius: 12, padding: 12 }}>
                   <div style={{ fontSize: 10, color: "#555", textAlign: "center" }}>
-                    {Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5)} days between photos
+                    {Math.abs(Math.round((new Date(compareB.date) - new Date(compareA.date)) / 864e5))} days between photos
                   </div>
                 </div>
                 <button onClick={analyzeComparison} disabled={compareLoading} className="gym-btn"
