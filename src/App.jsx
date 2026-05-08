@@ -2042,11 +2042,12 @@ function TrackTab({ sessions, setSessions, workoutLogs, setWorkoutLogs, customEx
         sets: (ex.sets || []).filter(s => s.done).map(s => ({ weight: s.weight, reps: s.reps })),
       })) : null;
 
-      const prompt = `The athlete just finished a session. Give a brief, direct assessment in 3-5 sentences. Cover: (1) what went well with specific numbers, (2) one concrete thing to adjust next session based on RPE/volume, (3) whether they should progress, hold, or deload a specific lift. No generic praise, no bullet lists, no markdown headers — just tight coaching prose.
+      const prompt = `The athlete just finished a session. Give a brief, direct assessment in 3-5 sentences. Cover: (1) what went well with specific numbers, (2) one concrete thing to adjust next session based on RPE/volume, (3) address any notes/comments the athlete left, (4) whether they should progress, hold, or deload a specific lift. No generic praise, no bullet lists, no markdown headers — just tight coaching prose.
 
 THIS SESSION:
 Name: ${log.sessionName}
 Duration: ${Math.round((log.durationSeconds || 0) / 60)} min
+Athlete's Notes: ${log.notes || "None"}
 Exercises:
 ${JSON.stringify(exBreakdown, null, 2)}
 
